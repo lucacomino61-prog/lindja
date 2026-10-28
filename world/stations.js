@@ -218,12 +218,12 @@ function durres() {
   const wagons = [];
   for (let i = 0; i < nW; i++) {
     const w = i === nW - 1 ? P.locomotive() : P.flatWagon();
-    if (i < nW - 1) for (const z of [-0.55, 0.55]) { const c = V.car('sedan', '#F2F2EE'); c.scale.setScalar(0.85); c.position.set(0, 0.33, z); w.add(c); }
+    if (i < nW - 1) for (const z of [-0.55, 0.55]) { const c = V.car('sedan', '#F2F2EE', 'lo'); c.scale.setScalar(0.85); c.position.set(0, 0.33, z); w.add(c); }
     g.add(w); wagons.push(w);
   }
   const sA = nearestS(roadA, -262, 45);
   const tr = convoy(g, roadA, { center: sA, half: 45, speed: 3.4, make: (i) => V.carTransporter(i + 7) });
-  const traffic = convoy(g, roadA, { center: sA, half: 45, speed: 4.2, dir: -1, make: () => V.car('van', '#F2F2EE') });
+  const traffic = convoy(g, roadA, { center: sA, half: 45, speed: 4.2, dir: -1, make: () => V.car('van', '#F2F2EE', 'lo') });
   const cr = [18, 32].map((z) => { const c = K.stsCrane(); c.position.set(st.quay - 2.4, y, z); c.rotation.y = Math.PI; g.add(c); return c; });
   for (let z = -10; z <= 58; z += 12) g.add(place(P.lightTower(5), -236.4, z, { y }));
   const tug = pathRing(g, path3([[-214, 0.15, 2], [-208, 0.15, 8], [-212, 0.15, 16], [-216.6, 0.15, 8]], true), { count: 1, make: () => P.tugboat('#2F6E8C'), bob: 0.05 });

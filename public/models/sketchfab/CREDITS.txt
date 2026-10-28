@@ -1,0 +1,11 @@
+Models from Sketchfab, used under their Creative Commons licences. Changes: optimised for the web (simplified copies, textures resized and compressed), cars repainted, containers recoloured, the trailer's own cars replaced.
+
+ship-container: "Container Ship" by RM02 (https://sketchfab.com/RM02), CC Attribution, https://sketchfab.com/3d-models/container-ship-aaa41cca946b4a08bc08cf692b7757be
+container-open: "Classic Shipping Container (Free/Gameready)" by Sebastian Webster (https://sketchfab.com/Sebastian.Hamish.Webster), CC Attribution, https://sketchfab.com/3d-models/classic-shipping-container-freegameready-772f4be391a245f699c54e6cf157c58d
+container-box: "Low Poly Cargo Container" by yxungsauce2 (https://sketchfab.com/yxungsauce2), CC Attribution, https://sketchfab.com/3d-models/low-poly-cargo-container-27a114c8a5a7476fb28c54a0177ee6c7
+car-sedan: "2017 Hyundai Sonata  Hybrid" by m3ika (https://sketchfab.com/m3ika3D), CC Attribution, https://sketchfab.com/3d-models/2017-hyundai-sonata-hybrid-c435ef02b27140e2a5f800c622bb4c04
+car-hatch: "2018 Hyundai I30 N" by 007 (https://sketchfab.com/tangwang920), CC Attribution, https://sketchfab.com/3d-models/2018-hyundai-i30-n-7fd413458d954ad4b23094bccf6bbd6e
+car-suv: "2015 Hyundai Tucson" by razor24 (https://sketchfab.com/razor24), CC Attribution, https://sketchfab.com/3d-models/2015-hyundai-tucson-7674a3bd168a451daf73fc0a33d39589
+car-ev: "Hyundai Ioniq 5 - Lowpoly" by andikapratamaw (https://sketchfab.com/andikapratamaw), CC Attribution, https://sketchfab.com/3d-models/hyundai-ioniq-5-lowpoly-675e78311e8440d88714bd212cb7a8fb
+truck-cab: "Hyundai Xcient" by asian3dmodel (https://sketchfab.com/nguyenhoanglam20100609), CC Attribution, https://sketchfab.com/3d-models/hyundai-xcient-fca5d63e949c4cc380cc2824c2940856
+trailer-cars: "Car Transport Trailer" by maregajavier (https://sketchfab.com/maregajavier), CC Attribution, https://sketchfab.com/3d-models/car-transport-trailer-e79c6159983c430dbaa6110cff5a8b92

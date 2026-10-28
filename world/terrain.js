@@ -60,7 +60,7 @@ export function buildTerrain() {
           float fw = max(fwidth(ch), 1e-4);
           float f = abs(fract(ch - 0.5) - 0.5) / fw;
           float major = abs(fract(ch / 5.0 - 0.5) - 0.5) / (fw / 5.0);
-          float line = (1.0 - min(f / 0.9, 1.0)) * 0.22 + (1.0 - min(major / 1.1, 1.0)) * 0.3;
+          float line = (1.0 - min(f / 0.9, 1.0)) * 0.05 + (1.0 - min(major / 1.1, 1.0)) * 0.08;
           float land = smoothstep(1.0, 2.5, vWY);
           diffuseColor.rgb *= 1.0 - line * land;
         }`);
@@ -89,12 +89,20 @@ export function buildSea() {
   }
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
   geo.setAttribute('aShore', new THREE.BufferAttribute(shore, 1));
-  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.16, metalness: 0.12, flatShading: true });
+  const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.08, metalness: 0.0, flatShading: false, envMapIntensity: 0.75 });
   const uniforms = { uPhase: { value: 0 } };
   m.onBeforeCompile = (sh) => {
     sh.uniforms.uPhase = uniforms.uPhase;
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', '#include <common>\nuniform float uPhase;\nattribute float aShore;\nvarying float vShore;')
+      .replace('#include <beginnormal_vertex>', `
+        float a0 = uPhase * 6.2831853, o0 = 1.0 - aShore * 0.7;
+        float dx = o0 * (0.11 * 0.9 * cos(position.x * 0.9 + position.z * 0.35 + a0) - 0.07 * 0.4 * cos(position.z * 1.3 - position.x * 0.4 - a0) + 0.04 * 2.3 * cos(position.x * 2.3 + position.z * 1.9 + 2.0 * a0));
+        float dz = o0 * (0.11 * 0.35 * cos(position.x * 0.9 + position.z * 0.35 + a0) + 0.07 * 1.3 * cos(position.z * 1.3 - position.x * 0.4 - a0) + 0.04 * 1.9 * cos(position.x * 2.3 + position.z * 1.9 + 2.0 * a0));
+        vec3 objectNormal = normalize(vec3(-dx, 1.0, -dz));
+        #ifdef USE_TANGENT
+          vec3 objectTangent = vec3(1.0, 0.0, 0.0);
+        #endif`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         float a = uPhase * 6.2831853;
         vShore = aShore;
@@ -123,11 +131,11 @@ export function buildSea() {
 export function roadCurve(pts) {
   return new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), false, 'centripetal', 0.5);
 }
-export function buildRoad(curve, { width = 1.9, color = '#3B3E43', dashes = true } = {}) {
+export function buildRoad(curve, { width = 1.9, color = '#3B3E43', dashes = true, material = null } = {}) {
   const L = curve.getLength();
   const n = Math.ceil(L / 0.7);
   const pts = curve.getSpacedPoints(n);
-  const verts = [], idx = [];
+  const verts = [], idx = [], uvs = [];
   const dashVerts = [], dashIdx = [];
   const side = new THREE.Vector3();
   for (let i = 0; i <= n; i++) {
@@ -136,6 +144,7 @@ export function buildRoad(curve, { width = 1.9, color = '#3B3E43', dashes = true
     side.set(-(q.z - o.z), 0, q.x - o.x).normalize();
     const y = height(p.x, p.z) + 0.07;
     verts.push(p.x + side.x * width / 2, y, p.z + side.z * width / 2, p.x - side.x * width / 2, y, p.z - side.z * width / 2);
+    uvs.push(0, i * 0.35, 1, i * 0.35);
     if (i < n) idx.push(i * 2, i * 2 + 1, i * 2 + 2, i * 2 + 1, i * 2 + 3, i * 2 + 2);
     if (dashes && i % 4 < 2 && i < n) {
       const b = dashVerts.length / 3;
@@ -145,9 +154,9 @@ export function buildRoad(curve, { width = 1.9, color = '#3B3E43', dashes = true
     }
   }
   const g = new THREE.BufferGeometry();
-  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); g.setIndex(idx); g.computeVertexNormals();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(verts, 3)); g.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2)); g.setIndex(idx); g.computeVertexNormals();
   const group = new THREE.Group();
-  const road = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide }));
+  const road = new THREE.Mesh(g, material || new THREE.MeshStandardMaterial({ color, roughness: 0.95, side: THREE.DoubleSide }));
   road.receiveShadow = true; group.add(road);
   if (dashes) {
     const dg = new THREE.BufferGeometry();

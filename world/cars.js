@@ -1,145 +1,44 @@
-// Cars and the ships and buildings that move them. Cars are Kenney's Car Kit (CC0, public/models/kenney),
-// merged into one geometry per body and repainted per listing; ships, trucks and buildings are built here.
+// Cars and the ships and buildings that move them. Cars, the car transporter and the container ship are Sketchfab
+// models (world/models.js), the cars repainted per listing; the rest is built here.
 import * as THREE from 'three';
-import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
-import { mat, C, wordTexture, shadowed, truck } from './kit.js';
+import { mat, C, wordTexture, shadowed } from './kit.js';
 import { rng } from './noise.js';
+import * as M from './models.js';
 
 export const CAR_LENGTH = 0.92; // model units; about 0.52 wide. A truck is about 2.3
 export const CAR_COLORS = ['#F2F2EE', '#E4E2DA', '#1B1D21', '#A9AEB3', '#6C7177', '#2D4D78', '#9E2A2B', '#F2F2EE', '#1B1D21', '#A9AEB3', '#4D6A57', '#D9CFBF'];
 
-// body type → Kenney model
-const KIT = { sedan: 'sedan', suv: 'suv', lux: 'suv-luxury', ev: 'suv-luxury', hatch: 'hatchback-sports', van: 'van', flat: 'truck-flat' };
-let kit = null;
-
-export async function loadKit(base = '/models/kenney/') {
-  if (kit) return kit;
-  const loader = new GLTFLoader();
-  const files = [...new Set(Object.values(KIT))];
-  const gltfs = await Promise.all(files.map((f) => loader.loadAsync(`${base}${f}.glb`)));
-  kit = {};
-  files.forEach((f, i) => {
-    const root = gltfs[i].scene;
-    root.updateMatrixWorld(true);
-    const parts = [];
-    let map = null, body = null;
-    root.traverse((o) => {
-      if (!o.isMesh) return;
-      let g = o.geometry.clone().applyMatrix4(o.matrixWorld);
-      if (g.index) g = g.toNonIndexed();
-      for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
-      parts.push(g);
-      map ||= o.material.map;
-      if (/body/i.test(o.name) && (!body || g.attributes.position.count > body.attributes.position.count)) body = g; // wheels can hang under the body node
-    });
-    const geo = mergeGeometries(parts);
-    // face +z, sit on y = 0, centred, length = CAR_LENGTH (trucks keep their own size ratio)
-    geo.computeBoundingBox();
-    let s = geo.boundingBox.getSize(new THREE.Vector3());
-    if (s.x > s.z) { geo.rotateY(Math.PI / 2); geo.computeBoundingBox(); s = geo.boundingBox.getSize(new THREE.Vector3()); }
-    const len = f === 'truck-flat' ? 2.3 : f === 'van' ? 1.05 : CAR_LENGTH;
-    const k = len / s.z;
-    const kx = f === 'truck-flat' ? 0.8 / s.x : k; // the cartoon truck is slimmed to fit a lane
-    const c = geo.boundingBox.getCenter(new THREE.Vector3());
-    geo.translate(-c.x, -geo.boundingBox.min.y, -c.z);
-    geo.scale(kx, k, k);
-    if (FLIP[f]) geo.rotateY(Math.PI);
-    geo.computeVertexNormals();
-    kit[f] = { geo, map, paint: paintKey(body || parts[0], map, f), size: new THREE.Vector3(s.x * kx, s.y * k, s.z * k) };
-  });
-  if (typeof window !== 'undefined') window.__paint = Object.fromEntries(Object.entries(kit).map(([k, v]) => [k, v.paint.family.map((c) => [c.cx, c.cy, Math.round(c.h), +c.s.toFixed(2), +c.v.toFixed(2)])]));
-  return kit;
-}
-// Kenney's cars are modelled nose to -z; turn them so the nose is +z like every other vehicle here
-const FLIP = { sedan: true, suv: true, 'suv-luxury': true, 'hatchback-sports': true, van: true, 'truck-flat': true };
-
-// Kenney's colormap is a grid of gradient swatches (16 columns x 4 rows on 512 px). The body paint is the
-// swatch cell the body mesh uses most by area; its neighbours of the same hue are the paint's darker side.
-const COLS = 16, ROWS = 4;
-const hueSat = (r, g, b) => {
-  const mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
-  let h = 0;
-  if (d) { if (mx === r) h = ((g - b) / d) % 6; else if (mx === g) h = (b - r) / d + 2; else h = (r - g) / d + 4; }
-  return [(h * 60 + 360) % 360, mx ? d / mx : 0, mx / 255];
-};
-// each Kenney model ships one body colour; its hue says which swatch cells are paint
-const PAINT_HUE = { sedan: 8, suv: 150, 'suv-luxury': 40, 'hatchback-sports': 150, van: 222, 'truck-flat': null };
-function paintKey(geo, map, file) {
-  const img = map.image;
-  const cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
-  const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
-  const W = cv.width, H = cv.height, px = g.getImageData(0, 0, W, H).data;
-  const cw = W / COLS, ch = H / ROWS;
-  const cells = [];
-  for (let cy = 0; cy < ROWS; cy++) for (let cx = 0; cx < COLS; cx++) {
-    let r = 0, gg = 0, b = 0, n = 0;
-    for (let y = cy * ch; y < (cy + 1) * ch; y += 4) for (let x = cx * cw; x < (cx + 1) * cw; x += 4) { const o = (y * W + x) * 4; r += px[o]; gg += px[o + 1]; b += px[o + 2]; n++; }
-    r /= n; gg /= n; b /= n;
-    const [h, sat, v] = hueSat(r, gg, b);
-    cells.push({ cx, cy, h, s: sat, v, lum: 0.299 * r + 0.587 * gg + 0.114 * b });
-  }
-  // cells the body actually uses
-  const used = new Set();
-  const uv = geo.attributes.uv;
-  for (let i = 0; i < uv.count; i++) used.add(Math.min(ROWS - 1, Math.max(0, Math.floor(uv.getY(i) * ROWS))) * COLS + Math.min(COLS - 1, Math.max(0, Math.floor(uv.getX(i) * COLS))));
-  const hue = PAINT_HUE[file];
-  const family = hue == null ? [] : [...used].map((k) => cells[k]).filter((c) => c.s > 0.35 && Math.min(Math.abs(c.h - hue), 360 - Math.abs(c.h - hue)) < 18);
-  const lum = family.length ? family.reduce((t, c) => t + c.lum, 0) / family.length : 200;
-  if (typeof window !== 'undefined') (window.__used ||= {})[file] = [...used].map((k) => [cells[k].cx, cells[k].cy, Math.round(cells[k].h), +cells[k].s.toFixed(2), +cells[k].v.toFixed(2)]);
-  return { px, w: W, h: H, cw, ch, family, lum };
+// every model the world needs: Sketchfab cars, transporter, ship and containers (world/models.js)
+export async function loadModels() {
+  await M.loadModels();
+  shipScene = M.ship;
 }
 
-function paintedMaterial(file, color) {
-  const key = `${file}|${color}`;
-  if (paintCache.has(key)) return paintCache.get(key);
-  const { paint, map } = kit[file];
-  const cv = document.createElement('canvas'); cv.width = paint.w; cv.height = paint.h;
-  const g = cv.getContext('2d');
-  const out = g.createImageData(paint.w, paint.h);
-  out.data.set(paint.px);
-  const t = new THREE.Color(color);
-  const tr = t.r * 255, tg = t.g * 255, tb = t.b * 255;
-  const d = out.data;
-  for (const cell of paint.family) {
-    for (let y = cell.cy * paint.ch; y < (cell.cy + 1) * paint.ch; y++) for (let x = cell.cx * paint.cw; x < (cell.cx + 1) * paint.cw; x++) {
-      const o = (y * paint.w + x) * 4;
-      // keep the swatch's own gradient: scale the new colour by the pixel's brightness against the paint's mean
-      const f = Math.min(1.6, (0.299 * d[o] + 0.587 * d[o + 1] + 0.114 * d[o + 2]) / Math.max(1, paint.lum));
-      d[o] = Math.min(255, tr * f + (f > 1 ? (f - 1) * 60 : 0)); d[o + 1] = Math.min(255, tg * f + (f > 1 ? (f - 1) * 60 : 0)); d[o + 2] = Math.min(255, tb * f + (f > 1 ? (f - 1) * 60 : 0));
-    }
-  }
-  g.putImageData(out, 0, 0);
-  const tex = new THREE.CanvasTexture(cv);
-  tex.colorSpace = THREE.SRGBColorSpace; tex.flipY = map.flipY;
-  tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearFilter; tex.generateMipmaps = false;
-  const m = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.38, metalness: 0.1 });
-  paintCache.set(key, m);
-  return m;
-}
-const paintCache = new Map();
-export function carGeo(type) { return kit[KIT[type] || type].geo; }
-
-export function car(type = 'sedan', color = CAR_COLORS[0]) {
-  const file = KIT[type] || type;
-  const m = new THREE.Mesh(kit[file].geo, paintedMaterial(file, color));
-  m.castShadow = true; m.receiveShadow = true;
-  const g = new THREE.Group(); g.add(m);
+// one car; `detail` 'lo' takes the light copy (far or many: train wagons, road traffic)
+export function car(type = 'sedan', color = CAR_COLORS[0], detail = 'hi') {
+  const g = new THREE.Group();
   g.userData.type = type;
+  for (const p of M.cars[type][detail]) {
+    const m = new THREE.Mesh(p.geo, p.paint ? M.paintMaterial(color) : p.material);
+    m.castShadow = true; m.receiveShadow = true; g.add(m);
+  }
   return g;
 }
-// many parked cars: one InstancedMesh per body and colour. slots [{x,y,z,ry,type,color}]
+// many parked cars from the light copies: per body type one InstancedMesh per part, the paint split by colour.
+// slots [{x,y,z,ry,type,color}]
 export function carLot(slots) {
   const g = new THREE.Group();
-  const groups = new Map();
-  for (const s of slots) { const k = `${KIT[s.type] || s.type}|${s.color}`; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(s); }
+  const byType = new Map();
+  for (const s of slots) { if (!byType.has(s.type)) byType.set(s.type, []); byType.get(s.type).push(s); }
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), e = new THREE.Euler();
-  for (const [k, list] of groups) {
-    const [file, color] = k.split('|');
-    const im = new THREE.InstancedMesh(kit[file].geo, paintedMaterial(file, color), list.length);
-    list.forEach((s, i) => { p.set(s.x, s.y, s.z); q.setFromEuler(e.set(0, s.ry || 0, 0)); m4.compose(p, q, one); im.setMatrixAt(i, m4); });
-    im.castShadow = true; im.receiveShadow = true;
-    g.add(im);
+  const fill = (im, list) => { list.forEach((s, i) => { p.set(s.x, s.y, s.z); q.setFromEuler(e.set(0, s.ry || 0, 0)); m4.compose(p, q, one); im.setMatrixAt(i, m4); }); im.castShadow = true; im.receiveShadow = true; g.add(im); };
+  for (const [type, list] of byType) {
+    for (const part of M.cars[type].lo) {
+      if (!part.paint) { fill(new THREE.InstancedMesh(part.geo, part.material, list.length), list); continue; }
+      const byColor = new Map();
+      for (const s of list) { if (!byColor.has(s.color)) byColor.set(s.color, []); byColor.get(s.color).push(s); }
+      for (const [color, cl] of byColor) fill(new THREE.InstancedMesh(part.geo, M.paintMaterial(color), cl.length), cl);
+    }
   }
   return g;
 }
@@ -161,78 +60,26 @@ function decal(tex, w, h, transparent = false) {
   o.receiveShadow = true; return o;
 }
 
-// Pure car and truck carrier (PCTC), nose +z: dark hull with a flared bow, white car decks with louvres,
-// a bridge across the bow with wings and a turning radar, funnel and free-fall lifeboat aft, stern quarter ramp.
-export function carCarrier({ len = 34, name = 'LINDJA' } = {}) {
-  const g = new THREE.Group();
-  const w = 5.6, hHull = 7.2;
-  const sh = new THREE.Shape();
-  sh.moveTo(-w / 2, -len / 2); sh.lineTo(w / 2, -len / 2); sh.lineTo(w / 2, len / 2 - 4.2); sh.bezierCurveTo(w / 2, len / 2 - 1.2, w * 0.18, len / 2 + 0.5, 0, len / 2 + 0.6); sh.bezierCurveTo(-w * 0.18, len / 2 + 0.5, -w / 2, len / 2 - 1.2, -w / 2, len / 2 - 4.2); sh.closePath();
-  const ext = (depth, y0, color, s = 1, bevel = 0) => { const geo = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: bevel > 0, bevelSize: bevel, bevelThickness: bevel, bevelSegments: 2, curveSegments: 18 }); geo.rotateX(-Math.PI / 2); geo.rotateY(Math.PI); geo.scale(s, 1, s); geo.translate(0, y0, 0); return m(geo, mat(color, { roughness: 0.55 })); };
-  g.add(ext(1.0, -1.25, '#7A2A22')); // red bottom below the waterline
-  g.add(ext(1.25, -0.25, C.ink));
-  g.add(ext(0.28, 0.98, C.orange, 1.003));
-  g.add(ext(hHull - 1.45, 1.24, C.white, 1, 0.06));
-  // deck lines and louvres on both sides
-  const louvre = mat('#9EA3A6', { roughness: 0.8 });
-  for (const side of [-1, 1]) {
-    for (const yy of [2.6, 3.8, 5.0, 6.2]) g.add(m(box(0.02, 0.05, len - 6), mat('#CFD1CB'), side * (w / 2 + 0.065), yy, -1.2));
-    for (let i = 0; i < 12; i++) for (const yy of [3.2, 5.6]) g.add(m(box(0.03, 0.36, 0.9), louvre, side * (w / 2 + 0.07), yy, -len / 2 + 3 + i * 2.3));
-  }
-  g.add(m(box(w * 0.98, 0.16, len - 3), mat('#B9BBB5'), 0, hHull - 0.2, -0.8)); // weather deck
-  for (let i = 0; i < 9; i++) for (const side of [-1, 1]) g.add(m(box(0.1, 0.36, 0.5), mat('#C4C6C1'), side * (w / 2 - 0.25), hHull + 0.08, -len / 2 + 4 + i * 2.8));
-  // bridge forward: window band all round, wings, mast with radar
-  const bz = len / 2 - 5.2;
-  g.add(m(box(w - 0.2, 1.3, 2.0), mat(C.white), 0, hHull + 0.55, bz));
-  g.add(m(box(w - 0.18, 0.34, 2.02), mat('#1C2A33', { roughness: 0.15, metalness: 0.3 }), 0, hHull + 0.78, bz));
-  g.add(m(box(w + 1.4, 0.16, 1.1), mat(C.white), 0, hHull + 1.12, bz + 0.3));
-  g.add(m(box(w + 0.4, 0.14, 2.2), mat(C.ink), 0, hHull + 1.27, bz));
-  const mast = new THREE.Group(); mast.position.set(0, hHull + 1.34, bz - 0.3);
-  mast.add(m(new THREE.CylinderGeometry(0.06, 0.08, 1.8, 6), mat(C.white), 0, 0.9, 0));
-  mast.add(m(box(0.7, 0.06, 0.06), mat(C.white), 0, 1.4, 0));
-  const radar = new THREE.Group(); radar.position.set(0, 1.85, 0);
-  radar.add(m(box(1.1, 0.06, 0.1), mat(C.dark), 0, 0, 0));
-  radar.add(m(new THREE.CylinderGeometry(0.05, 0.05, 0.12, 6), mat(C.dark), 0, -0.07, 0));
-  mast.add(radar);
-  const beacon = m(new THREE.SphereGeometry(0.07, 8, 6), mat('#FFE9A8', { emissive: '#FFD86A', emissiveIntensity: 1 }), 0, 2.0, 0); mast.add(beacon);
-  g.add(mast);
-  // forecastle winches
-  for (const x of [-1.2, 1.2]) { const wch = m(new THREE.CylinderGeometry(0.22, 0.22, 0.4, 10), mat(C.dark), x, hHull + 0.15, len / 2 - 1.8); wch.rotation.z = Math.PI / 2; g.add(wch); }
-  // funnel aft with the brand band
-  g.add(m(box(1.1, 1.7, 1.1), mat(C.ink), 0, hHull + 0.85, -len / 2 + 2.6));
-  g.add(m(box(1.12, 0.38, 1.12), mat(C.orange), 0, hHull + 1.25, -len / 2 + 2.6));
-  // free-fall lifeboat on its slipway
-  const lb = new THREE.Group(); lb.position.set(0, hHull + 0.55, -len / 2 + 0.6); lb.rotation.x = 0.5;
-  lb.add(m(new THREE.CapsuleGeometry(0.32, 1.4, 4, 8).rotateX(Math.PI / 2), mat('#F2702A'), 0, 0, 0));
-  lb.add(m(box(0.5, 0.18, 0.7), mat('#F2702A'), 0, 0.32, -0.2));
-  g.add(lb);
-  // stern quarter ramp, hinged at the stern; setRamp lowers it
-  const rampPivot = new THREE.Group(); rampPivot.position.set(-(w / 2 - 0.9), 0.95, -len / 2); rampPivot.rotation.order = 'YXZ';
-  const ramp = m(box(1.5, 0.12, 4.2), mat(C.dark), 0, 0, -2.1); rampPivot.add(ramp);
-  for (const x of [-0.7, 0.7]) rampPivot.add(m(box(0.06, 0.2, 4.2), mat(C.yellow), x, 0.1, -2.1));
-  g.add(rampPivot);
-  const tex = wordTexture(name, { bg: C.white, fg: C.ink, w: 2048, h: 320, font: '800 270px "Big Shoulders Display"', tracking: 10 });
-  for (const side of [1, -1]) { const d = decal(tex, 16, 2.5); d.position.set(side * (w / 2 + 0.072), 4.4, -2.4); d.rotation.y = side * Math.PI / 2; g.add(d); }
-  g.userData = { rampPivot, radar, len, w };
-  return shadowed(g);
-}
-export function setRamp(ship, k) { ship.userData.rampPivot.rotation.set(-0.09 * k - 1.35 * (1 - k), 0.6 * k, 0); }
+// the Sketchfab ship has no radar node; kept so the stations can call it on any vessel
 export function spinRadar(ship, phase) { if (ship.userData.radar) ship.userData.radar.rotation.y = phase * Math.PI * 2; }
 
-// car transporter: Kenney's flatbed truck carrying a two-deck frame with four cars
+// car transporter: a Hyundai Xcient tractor and a two-deck trailer (both Sketchfab, world/models.js) with six of
+// our cars on the trailer's own slots; centred on its length so convoys keep their spacing
 export function carTransporter(seed = 1) {
-  const g = new THREE.Group();
-  const base = new THREE.Mesh(kit['truck-flat'].geo, paintedMaterial('truck-flat', '#F2F2EE')); base.castShadow = true; base.receiveShadow = true; g.add(base);
+  const T = M.transporter, rig = new THREE.Group();
+  for (const p of T.trailer) rig.add(m(p.geo, p.material));
+  for (const p of T.cab) rig.add(m(p.geo, p.material, 0, 0, T.cabZ));
   const r = rng(seed);
-  const frame = mat('#3A3F45');
-  const L = kit['truck-flat'].size.z, bedY = kit['truck-flat'].size.y * 0.42, bedZ = -L * 0.12;
-  g.add(m(box(0.62, 0.04, L * 0.62), frame, 0, bedY + 0.48, bedZ));
-  for (const z of [bedZ - L * 0.3, bedZ, bedZ + L * 0.3]) for (const x of [-0.29, 0.29]) g.add(m(box(0.05, 0.5, 0.05), frame, x, bedY + 0.24, z));
   const types = ['sedan', 'suv', 'hatch', 'ev'];
-  for (const [z, y] of [[bedZ + L * 0.16, bedY], [bedZ - L * 0.16, bedY], [bedZ + L * 0.16, bedY + 0.5], [bedZ - L * 0.16, bedY + 0.5]]) {
-    const c = car(types[Math.floor(r() * 4)], CAR_COLORS[Math.floor(r() * CAR_COLORS.length)]);
-    c.scale.setScalar(0.74); c.position.set(0, y + 0.02, z); g.add(c);
+  for (const s of T.slots) {
+    const type = types[Math.floor(r() * 4)];
+    const c = car(type, CAR_COLORS[Math.floor(r() * CAR_COLORS.length)], 'lo');
+    c.scale.setScalar(Math.min(1, s.len / M.cars[type].size.z));
+    c.position.copy(s.pos); c.rotation.x = -s.pitch;
+    rig.add(c);
   }
+  rig.position.z = -T.center;
+  const g = new THREE.Group(); g.add(rig);
   return shadowed(g);
 }
 
@@ -342,15 +189,10 @@ export function priceBoard() {
   return g;
 }
 
-// The vessel: "Container Ship" by Alex Safayan (Poly Pizza, CC-BY 3.0), credited in the site footer.
+// The vessel: "Container Ship" by RM02 (Sketchfab, CC-BY 4.0), loaded by loadModels, credited in the site footer.
 let shipScene = null;
-export async function loadShip(url = '/models/polypizza/container-ship.glb') {
-  if (shipScene) return shipScene;
-  shipScene = (await new GLTFLoader().loadAsync(url)).scene;
-  return shipScene;
-}
-// bow to +z, waterline at y = 0, length `len` model units
-export function containerShip({ len = 34, draft = 0.14 } = {}) {
+// bow to +z, waterline at y = 0, length `len` model units; `draft` is the share of the model's height under water
+export function containerShip({ len = 34, draft = SHIP_DRAFT } = {}) {
   const inner = shipScene.clone(true);
   inner.updateMatrixWorld(true);
   let box = new THREE.Box3().setFromObject(inner), s = box.getSize(new THREE.Vector3());
@@ -364,4 +206,4 @@ export function containerShip({ len = 34, draft = 0.14 } = {}) {
   g.userData = { len, w: s.x * k, h: s.y * k };
   return g;
 }
-const SHIP_FLIP = false;
+const SHIP_FLIP = true, SHIP_DRAFT = 0.2; // the model is built stern to +x

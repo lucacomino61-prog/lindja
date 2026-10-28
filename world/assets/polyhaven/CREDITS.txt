@@ -1,0 +1,4 @@
+Poly Haven assets (CC0, https://polyhaven.com/license):
+- kloofendal_48d_partly_cloudy_puresky (HDRI)
+- asphalt_02, concrete_floor_02 (textures)
+Used only in the offline film render.

@@ -3,3 +3,5 @@ dist/
 renders/
 .impeccable/perf/
 *.log
+.env.local
+.env

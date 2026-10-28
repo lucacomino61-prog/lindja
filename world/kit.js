@@ -2,6 +2,8 @@
 // Every piece is built from simple solids with flat shading, painted like a model railway layout.
 import * as THREE from 'three';
 import { rng } from './noise.js';
+import * as models from './models.js';
+import { fit } from './models.js';
 
 export const C = {
   orange: '#FF4F12', ink: '#101418', white: '#F3F2EE', paper: '#EEF0EC', grey: '#B8BBB7', mid: '#7D8289', dark: '#43484F',
@@ -109,13 +111,13 @@ export function person(color = C.ink) {
 // ---------- containers ----------
 export const CONTAINER_COLORS = [C.orange, C.teal, C.rust, C.white, C.ink, C.moss, C.orange, C.grey];
 export function containerStacks(slots, seed = 3, len = 1.7) {
-  // slots: [{x,y,z,rotY}] → one InstancedMesh, colour per box
+  // slots: [{x,y,z,rotY}] → one InstancedMesh of the textured Sketchfab box (world/models.js), colour per box
   const r = rng(seed);
-  const geo = new THREE.BoxGeometry(0.42, 0.44, len);
-  const im = new THREE.InstancedMesh(geo, mat('#ffffff'), slots.length);
+  const geo = fit(models.containerBox.geo, 0.42, 0.44, len);
+  const im = new THREE.InstancedMesh(geo, models.containerBox.material, slots.length);
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), col = new THREE.Color();
   slots.forEach((sl, i) => {
-    p.set(sl.x, sl.y + 0.22, sl.z); q.setFromEuler(new THREE.Euler(0, sl.rotY || 0, 0));
+    p.set(sl.x, sl.y, sl.z); q.setFromEuler(new THREE.Euler(0, sl.rotY || 0, 0));
     m4.compose(p, q, s); im.setMatrixAt(i, m4);
     col.set(sl.color || CONTAINER_COLORS[Math.floor(r() * CONTAINER_COLORS.length)]); im.setColorAt(i, col);
   });
@@ -124,10 +126,11 @@ export function containerStacks(slots, seed = 3, len = 1.7) {
 }
 export function containerBox(color = C.orange, len = 1.7) {
   const g = new THREE.Group();
-  g.add(mesh(box(0.42, 0.44, len), mat(color), 0, 0.22, 0));
+  const m = models.containerBox.material.clone(); m.color.set(color);
+  g.add(mesh(fit(models.containerBox.geo, 0.42, 0.44, len), m, 0, 0, 0));
   if (color === C.orange) {
-    const tex = wordTexture('udha', { bg: C.orange, fg: C.ink, w: 1024, h: 256 });
-    for (const side of [-1, 1]) { const d = decal(tex, len * 0.8, len * 0.2); d.position.set(side * 0.212, 0.22, 0); d.rotation.y = side * Math.PI / 2; g.add(d); }
+    const tex = wordTexture('lindja', { bg: null, fg: C.ink, w: 1024, h: 256 });
+    for (const side of [-1, 1]) { const d = decal(tex, len * 0.62, len * 0.155); d.position.set(side * 0.214, 0.22, 0); d.rotation.y = side * Math.PI / 2; g.add(d); }
   }
   return shadowed(g);
 }

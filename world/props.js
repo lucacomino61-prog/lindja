@@ -3,6 +3,8 @@
 // Every animated prop takes a phase in 0..1 that repeats with the station loop.
 import * as THREE from 'three';
 import { mat, C, wordTexture, shadowed, person } from './kit.js';
+import * as models from './models.js';
+import { fit } from './models.js';
 
 const TAU = Math.PI * 2;
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
@@ -159,11 +161,20 @@ export function bayLines(n, step, len) {
 }
 
 // a 40-foot container standing on the quay with its doors swung open (cars drive in or out at +z)
+// the container cars drive into: "Classic Shipping Container" (Sketchfab, CC-BY), doors open at +z, tinted
 export function openContainer(color = C.orange) {
   const g = new THREE.Group();
-  const L = 2.3, W = 0.62, H = 0.66, t = 0.03, mt = mat(color);
-  g.add(m(box(W, t, L), mt, 0, H, 0), m(box(t, H, L), mt, -W / 2, H / 2, 0), m(box(t, H, L), mt, W / 2, H / 2, 0), m(box(W, H, t), mt, 0, H / 2, -L / 2));
-  g.add(m(box(W - 0.04, 0.02, L - 0.04), mat('#3B2E26'), 0, 0.03, 0));
-  for (const side of [-1, 1]) { const d = m(box(W / 2, H, t), mt, 0, H / 2, 0); d.position.set(side * (W / 2 + W / 4 * 0.2), H / 2, L / 2 + W / 4); d.rotation.y = side * 1.35; g.add(d); }
+  const L = 2.3, W = 0.62, H = 0.66;
+  for (const p of models.containerOpen) {
+    const mt = p.material.clone(); mt.color.set(color);
+    g.add(m(fit(p.geo, W, H, L, OPEN_FLIP), mt));
+  }
+  // our name over the model's printed one
+  const tex = wordTexture('lindja', { bg: color, fg: C.ink, w: 1024, h: 384 });
+  for (const side of [-1, 1]) {
+    const d = new THREE.Mesh(new THREE.PlaneGeometry(L * 0.62, H * 0.5), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -2 }));
+    d.position.set(side * (W / 2 + 0.012), H * 0.5, -L * 0.04); d.rotation.y = side * Math.PI / 2; d.receiveShadow = true; g.add(d);
+  }
   return shadowed(g);
 }
+const OPEN_FLIP = true;

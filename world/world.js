@@ -5,11 +5,13 @@ import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
+import { pbr } from './pbr.js';
 import { STATIONS, height, MAP, rectDist } from './geo.js';
 import { rng } from './noise.js';
 import { buildTerrain, buildSea, buildRoad, roadK, roadA } from './terrain.js';
 import { buildStations } from './stations.js';
-import { apartmentBlocks, loadKit } from './cars.js';
+import { apartmentBlocks, loadModels } from './cars.js';
 import * as K from './kit.js';
 import { layout, sceneTimes, ease, PERIOD } from './timeline.js';
 
@@ -87,7 +89,13 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   scene.background = haze.clone();
   scene.fog = new THREE.Fog(haze, 200, 600);
 
-  const hemi = new THREE.HemisphereLight('#D3E6F0', '#C8B48E', 1.05); scene.add(hemi);
+  const hemi = new THREE.HemisphereLight('#D3E6F0', '#C8B48E', 0.45); scene.add(hemi);
+  // real sky light and reflections: Poly Haven "kloofendal_48d_partly_cloudy_puresky" (CC0)
+  const hdr = await new RGBELoader().loadAsync('/world/assets/polyhaven/sky_2k.hdr');
+  hdr.mapping = THREE.EquirectangularReflectionMapping;
+  const pmrem = new THREE.PMREMGenerator(renderer);
+  scene.environment = pmrem.fromEquirectangular(hdr).texture; hdr.dispose();
+  scene.environmentIntensity = 0.6;
   const sun = new THREE.DirectionalLight('#FFE6C8', 3.0);
   const sunDir = new THREE.Vector3(-0.52, 0.66, 0.54).normalize();
   sun.castShadow = true;
@@ -95,11 +103,22 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3;
   scene.add(sun, sun.target);
 
-  await loadKit(); await (await import('./cars.js')).loadShip();
+  await loadModels();
   const terrain = buildTerrain(); scene.add(terrain);
   const sea = buildSea(); scene.add(sea);
-  scene.add(buildRoad(roadK, { width: 1.9 }));
-  scene.add(buildRoad(roadA, { width: 1.9 }));
+  const asphalt = pbr('asphalt_02', 1);
+  scene.add(buildRoad(roadK, { width: 1.9, material: asphalt }));
+  scene.add(buildRoad(roadA, { width: 1.9, material: asphalt }));
+  // yard surfaces: concrete in the ports and at the showroom, asphalt in the Incheon lot
+  for (const st of STATIONS) {
+    if (!st.rect) continue;
+    const [x0, x1, z0, z1] = st.rect, w = x1 - x0, d = z1 - z0;
+    const m = pbr(st.ground === 'asphalt' ? 'asphalt_02' : 'concrete_floor_02', 1, [w / 2.2, d / 2.2]); m.color.set(st.ground === 'asphalt' ? '#9A9EA3' : '#969894');
+    if (st.ground !== 'asphalt') m.map = null; // Poly Haven's concrete colour map is beige: keep its relief and roughness on a neutral grey
+    const yard = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m);
+    yard.rotation.x = -Math.PI / 2; yard.position.set((x0 + x1) / 2, st.pad + 0.012, (z0 + z1) / 2); yard.receiveShadow = true;
+    scene.add(yard);
+  }
 
   // scatter: Albania — olives, cypresses, terracotta villages, bunkers; Korea — red pines, apartment slabs
   const r = rng(2024);

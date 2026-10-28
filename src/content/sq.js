@@ -129,6 +129,7 @@ export default {
     contact: 'Kontakt', address: 'Adresa: vendoset nga kompania', phone: 'Telefon: vendoset nga kompania', email: 'Email: vendoset nga kompania',
     cols: 'Faqja', legal: '© 2026 LINDJA. Kompani e shpikur, ndërtuar si prototip. Markat Hyundai, Kia, Genesis dhe KGM u përkasin pronarëve të tyre; LINDJA nuk është përfaqësues i tyre.',
     top: 'Kthehu në krye',
-    credit: 'Modeli i anijes: “Container Ship” nga Alex Safayan (Poly Pizza, CC-BY 3.0). Makinat: Kenney Car Kit (CC0).',
+    credit: 'Modelet 3D nga Sketchfab (CC-BY 4.0): anija nga RM02; Hyundai Sonata nga m3ika, i30 N nga 007, Tucson nga razor24, Ioniq 5 nga andikapratamaw; kamioni Hyundai Xcient nga asian3dmodel, rimorkio nga maregajavier; kontejnerët nga Sebastian Webster dhe yxungsauce2. Qielli dhe sipërfaqet: Poly Haven (CC0).',
+    creditLink: 'Kreditet e plota',
   },
 };

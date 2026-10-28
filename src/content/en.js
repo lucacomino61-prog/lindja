@@ -129,6 +129,7 @@ export default {
     contact: 'Contact', address: 'Address: set by the company', phone: 'Phone: set by the company', email: 'Email: set by the company',
     cols: 'This site', legal: '© 2026 LINDJA. An invented company built as a prototype. Hyundai, Kia, Genesis and KGM belong to their owners; LINDJA does not represent them.',
     top: 'Back to top',
-    credit: 'Ship model: “Container Ship” by Alex Safayan (Poly Pizza, CC-BY 3.0). Cars: Kenney Car Kit (CC0).',
+    credit: '3D models from Sketchfab (CC-BY 4.0): ship by RM02; Hyundai Sonata by m3ika, i30 N by 007, Tucson by razor24, Ioniq 5 by andikapratamaw; Hyundai Xcient truck by asian3dmodel, trailer by maregajavier; containers by Sebastian Webster and yxungsauce2. Sky and surfaces: Poly Haven (CC0).',
+    creditLink: 'Full credits',
   },
 };

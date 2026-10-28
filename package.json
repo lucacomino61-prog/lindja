@@ -11,6 +11,7 @@
     "render:stills": "node tools/render-stills.mjs"
   },
   "devDependencies": {
+    "@gltf-transform/cli": "^4.5.1",
     "ffmpeg-static": "^5.3.0",
     "opentype.js": "^2.0.0",
     "puppeteer-core": "^24.43.1",
