@@ -9,3 +9,9 @@ car-suv: "2015 Hyundai Tucson" by razor24 (https://sketchfab.com/razor24), CC At
 car-ev: "Hyundai Ioniq 5 - Lowpoly" by andikapratamaw (https://sketchfab.com/andikapratamaw), CC Attribution, https://sketchfab.com/3d-models/hyundai-ioniq-5-lowpoly-675e78311e8440d88714bd212cb7a8fb
 truck-cab: "Hyundai Xcient" by asian3dmodel (https://sketchfab.com/nguyenhoanglam20100609), CC Attribution, https://sketchfab.com/3d-models/hyundai-xcient-fca5d63e949c4cc380cc2824c2940856
 trailer-cars: "Car Transport Trailer" by maregajavier (https://sketchfab.com/maregajavier), CC Attribution, https://sketchfab.com/3d-models/car-transport-trailer-e79c6159983c430dbaa6110cff5a8b92
+tree-olive: "Olive Tree Portugal" by CeDRI (https://sketchfab.com/CeDRI), CC Attribution, https://sketchfab.com/3d-models/olive-tree-portugal-e0b57e421ac546c6b7e4cb563f524640
+tree-cypress: "Cypress tree" by ElectroNick (https://sketchfab.com/ElectroNick), CC Attribution, https://sketchfab.com/3d-models/cypress-tree-249d8cb553a8469e9d645713f8e96ed1
+tree-pine: "Pine Tree" by evolveduk (https://sketchfab.com/evolveduk), CC Attribution, https://sketchfab.com/3d-models/pine-tree-d45218a3fab349e5b1de040f29e7b6f9
+worker: "Low-Poly Construction workers (animated)" by Jungle Jim (https://sketchfab.com/jungle_jim), CC Attribution, https://sketchfab.com/3d-models/low-poly-construction-workers-animated-7b62e6e1b58c476f8b421dd007a4ff90
+forklift: "Forklift low poly" by Ricardo Sanchez (https://sketchfab.com/380660711785), CC Attribution, https://sketchfab.com/3d-models/forklift-low-poly-8ab650b3982243f8b661142de50f79c9
+tugboat: "Tugboat" by Mixmamo.studio:   An effortless 3D collections. (https://sketchfab.com/mixmamo.studio), CC Attribution, https://sketchfab.com/3d-models/tugboat-411a2311951a41be97ae205259fa607f

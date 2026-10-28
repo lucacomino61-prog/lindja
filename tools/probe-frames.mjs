@@ -8,15 +8,15 @@ import puppeteer from 'puppeteer-core';
 const args = process.argv.slice(2);
 const opt = (k, d) => (args.includes(k) ? args[args.indexOf(k) + 1] : d);
 const isMain = process.argv[1] && process.argv[1].endsWith('probe-frames.mjs');
-const w = +opt('--w', 1280), h = +opt('--h', 720), variant = opt('--variant', 'desktop'), quality = opt('--quality', 'draft');
+const w = +opt('--w', 1280), h = +opt('--h', 720), variant = opt('--variant', 'desktop'), quality = opt('--quality', 'draft'), look = opt('--look', 'day');
 const base = process.env.FILM_BASE || 'http://localhost:3820';
 
-export async function openFilm(browser, { w, h, variant, quality }) {
+export async function openFilm(browser, { w, h, variant, quality, look = 'day' }) {
   const page = await browser.newPage();
   await page.setViewport({ width: w, height: h, deviceScaleFactor: 1 });
   page.on('console', (m) => { if (m.type() === 'error' || m.type() === 'warn') console.log('[page]', m.type(), m.text().slice(0, 300)); });
   page.on('pageerror', (e) => console.log('[pageerror]', e.message));
-  await page.goto(`${base}/world/film.html?w=${w}&h=${h}&variant=${variant}&quality=${quality}`, { waitUntil: 'load', timeout: 120000 });
+  await page.goto(`${base}/world/film.html?w=${w}&h=${h}&variant=${variant}&quality=${quality}&look=${look}`, { waitUntil: 'load', timeout: 120000 });
   await page.waitForFunction('window.filmReady || window.filmError', { timeout: 300000 });
   const err = await page.evaluate('window.filmError');
   if (err) throw new Error(err);
@@ -36,7 +36,7 @@ if (isMain) {
   fs.mkdirSync(out, { recursive: true });
   const browser = await launch();
   try {
-    const page = await openFilm(browser, { w, h, variant, quality });
+    const page = await openFilm(browser, { w, h, variant, quality, look });
     const L = await page.evaluate('window.film.layout');
     const pick = opt('--frames', null);
     const frames = pick ? pick.split(',').map(Number) : L.segments.filter((s) => s.type === 'idle').map((s) => s.start + 30).concat([0, 270, 1134]);

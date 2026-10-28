@@ -7,5 +7,11 @@
   "car-suv": "7674a3bd168a451daf73fc0a33d39589",
   "car-ev": "675e78311e8440d88714bd212cb7a8fb",
   "truck-cab": "fca5d63e949c4cc380cc2824c2940856",
-  "trailer-cars": "e79c6159983c430dbaa6110cff5a8b92"
+  "trailer-cars": "e79c6159983c430dbaa6110cff5a8b92",
+  "tree-olive": "e0b57e421ac546c6b7e4cb563f524640",
+  "tree-cypress": "249d8cb553a8469e9d645713f8e96ed1",
+  "tree-pine": "d45218a3fab349e5b1de040f29e7b6f9",
+  "worker": "7b62e6e1b58c476f8b421dd007a4ff90",
+  "forklift": "8ab650b3982243f8b661142de50f79c9",
+  "tugboat": "411a2311951a41be97ae205259fa607f"
 }

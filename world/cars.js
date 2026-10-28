@@ -64,6 +64,9 @@ function decal(tex, w, h, transparent = false) {
 // the Sketchfab ship has no radar node; kept so the stations can call it on any vessel
 export function spinRadar(ship, phase) { if (ship.userData.radar) ship.userData.radar.rotation.y = phase * Math.PI * 2; }
 
+// the car carrier lives in its own module
+export { carCarrier } from './pctc.js';
+
 // car transporter: a Hyundai Xcient tractor and a two-deck trailer (both Sketchfab, world/models.js) with six of
 // our cars on the trailer's own slots; centred on its length so convoys keep their spacing
 export function carTransporter(seed = 1) {
@@ -129,6 +132,23 @@ export function showroom({ w = 16, d = 8, h = 3.6 } = {}) {
   const spot = mat('#FFF6E0', { emissive: '#FFF1CF', emissiveIntensity: 1.2 });
   for (let i = 0; i < 8; i++) g.add(m(new THREE.CylinderGeometry(0.16, 0.16, 0.03, 10), spot, -w / 2 + 1.2 + i * 1.9, 0.25 + h - 0.05, 0.6));
   for (const [x, z, it] of [[-w / 4, 0.8, 16], [w / 4, 0.8, 16]]) { const l = new THREE.PointLight('#FFF4E2', it, 14, 1.6); l.position.set(x, 0.25 + h - 0.6, z); g.add(l); }
+  // architecture: dark standing-seam cladding over the back wall, slim white fins outside the glazing, a fascia under
+  // the roof edge, sliding doors in the entrance bay, planters with clipped shrubs and a bollard line on the plinth
+  const cv = document.createElement('canvas'); cv.width = 256; cv.height = 64;
+  const cg = cv.getContext('2d'); cg.fillStyle = '#2C3036'; cg.fillRect(0, 0, 256, 64); cg.fillStyle = '#3A3F46'; for (let x = 0; x < 256; x += 32) cg.fillRect(x, 0, 3, 64);
+  const ct = new THREE.CanvasTexture(cv); ct.colorSpace = THREE.SRGBColorSpace; ct.wrapS = ct.wrapT = THREE.RepeatWrapping; ct.repeat.set(w / 0.9, 1);
+  g.add(m(box(w + 0.2, h, 0.06), new THREE.MeshStandardMaterial({ map: ct, roughness: 0.4, metalness: 0.6 }), 0, 0.25 + h / 2, -d / 2 - 0.16));
+  for (let i = 0; i <= 16; i++) g.add(m(box(0.04, h - 0.1, 0.32), mat('#F1F0EC', { roughness: 0.4 }), -w / 2 + (w * i) / 16, 0.25 + h / 2, d / 2 + 0.2));
+  g.add(m(box(w + 2.42, 0.18, 0.08), mat('#E9E8E3'), 0, 0.25 + h + 0.02, d / 2 + 2.92));
+  const doorX = w / 2 - 3.0, frame = mat('#1A1D21', { roughness: 0.35, metalness: 0.5 });
+  g.add(m(box(1.9, 0.08, 0.08), frame, doorX, 0.25 + 1.55, d / 2 + 0.05));
+  for (const x of [-0.95, 0, 0.95]) g.add(m(box(0.05, 1.55, 0.06), frame, doorX + x, 0.25 + 0.78, d / 2 + 0.05));
+  const planter = mat('#B8B4AB', { roughness: 0.85 }), shrub = mat('#4F6B3A', { roughness: 0.9 });
+  for (const x of [-w / 2 + 0.8, -w / 4, w / 4, w / 2 - 0.8]) {
+    g.add(m(box(1.0, 0.3, 0.45), planter, x, 0.4, d / 2 + 2.25));
+    const sh = m(new THREE.IcosahedronGeometry(0.26, 1), shrub, x, 0.66, d / 2 + 2.25); sh.scale.set(1.7, 0.75, 0.75); g.add(sh);
+  }
+  for (let x = -w / 2 - 0.4; x <= w / 2 + 0.4; x += 1.2) g.add(m(new THREE.CylinderGeometry(0.04, 0.04, 0.26, 8), mat('#D7D6D1', { metalness: 0.5, roughness: 0.3 }), x, 0.38, d / 2 + 2.62));
   g.add(m(box(2.2, 0.9, 0.7), mat(C.ink), w / 2 - 2.0, 0.7, -d / 2 + 1.2)); // reception desk
   g.add(m(box(2.24, 0.06, 0.74), mat(C.orange), w / 2 - 2.0, 1.17, -d / 2 + 1.2));
   g.userData = { w, d, h, pods, floorY: 0.44 };
@@ -164,31 +184,40 @@ export function apartmentBlocks(points) {
   }
   return g;
 }
-// Tirana's painted apartment blocks behind the showroom: bold facades (stripes, blocks of colour) over a window grid
+// Tirana's painted apartment blocks along the back of the showroom lot: bold facades (stripes, blocks of colour) over a window grid
 const FACADE = [['#E9B949', '#C2463A'], ['#D8573C', '#F1E3C6'], ['#5E8C6A', '#EFD46B'], ['#3F6FA8', '#F0EDE6'], ['#C9668A', '#F2D9A0'], ['#E58A3A', '#3D5A7A'], ['#8FB4C9', '#E4573D']];
-function facadeTexture(i, floors) {
-  const [a, b] = FACADE[i % FACADE.length], cv = document.createElement('canvas'); cv.width = 256; cv.height = 512;
+function facadeTexture(i, floors, bays) {
+  // a bay every 3 m: framed windows, balcony slabs per floor, the paint as broad bands or blocks behind them
+  const [a, b] = FACADE[i % FACADE.length], W = Math.max(256, bays * 48), H = Math.max(256, floors * 48);
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = H;
   const g = cv.getContext('2d');
-  g.fillStyle = a; g.fillRect(0, 0, 256, 512);
-  g.fillStyle = b;
-  const kind = i % 3;
-  if (kind === 0) for (let x = 0; x < 256; x += 64) g.fillRect(x, 0, 26, 512); // vertical bands
-  else if (kind === 1) for (let y = 0; y < 512; y += 96) g.fillRect(0, y, 256, 34); // horizontal bands
-  else for (let y = 0; y < 512; y += 128) for (let x = (y / 128) % 2 ? 0 : 128; x < 256; x += 256) g.fillRect(x, y, 128, 128); // blocks
-  g.fillStyle = 'rgba(28, 34, 40, 0.82)';
-  const fh = 512 / floors;
-  for (let f = 0; f < floors; f++) for (let k = 0; k < 4; k++) g.fillRect(18 + k * 60, f * fh + fh * 0.28, 34, fh * 0.42);
-  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  g.fillStyle = a; g.fillRect(0, 0, W, H);
+  g.fillStyle = b; g.globalAlpha = 0.85;
+  const kind = i % 3, bw = W / bays, fh = H / floors;
+  if (kind === 0) for (let k = 1; k < bays; k += 3) g.fillRect(k * bw, 0, bw, H);
+  else if (kind === 1) for (let f = 0; f < floors; f += 3) g.fillRect(0, f * fh, W, fh * 1.5);
+  else for (let f = 0; f < floors; f += 2) for (let k = (f / 2) % 2 ? 0 : 2; k < bays; k += 4) g.fillRect(k * bw, f * fh, bw * 2, fh * 2);
+  g.globalAlpha = 1;
+  for (let f = 0; f < floors; f++) {
+    g.fillStyle = 'rgba(235, 232, 225, 0.9)'; g.fillRect(0, f * fh + fh * 0.86, W, fh * 0.07); // balcony slab
+    for (let k = 0; k < bays; k++) {
+      const x = k * bw + bw * 0.2, y = f * fh + fh * 0.28, w = bw * 0.6, h = fh * 0.5;
+      g.fillStyle = '#E9E6DE'; g.fillRect(x - 2, y - 2, w + 4, h + 4);
+      g.fillStyle = (k * 7 + f * 3) % 11 === 0 ? '#5A6670' : '#2A333B'; g.fillRect(x, y, w, h);
+    }
+  }
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
   return t;
 }
 export function tiranaBlocks(seed = 41) {
   const g = new THREE.Group(), r = rng(seed);
   const roof = mat('#B9B4AA', { roughness: 0.9 });
   for (let i = 0; i < 16; i++) {
-    const x = -344 - (i % 6) * 7.4 - r() * 2, z = -67 - Math.floor(i / 6) * 7.5 - r() * 2.5;
+    const x = -369 + (i % 8) * 8.2 + r() * 2, z = -56.5 - Math.floor(i / 8) * 7.5 - r() * 1.5; // the city edge behind the lot
     const floors = 7 + Math.floor(r() * 7), h = floors * 0.6, w = 3.4 + r() * 1.6, d = 1.7 + r() * 0.5;
-    const side = new THREE.MeshStandardMaterial({ map: facadeTexture(i, floors), roughness: 0.85 });
-    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, roof, roof, side, side]);
+    const front = new THREE.MeshStandardMaterial({ map: facadeTexture(i, floors, Math.max(3, Math.round(w / 0.6))), roughness: 0.85 });
+    const end = new THREE.MeshStandardMaterial({ map: facadeTexture(i, floors, Math.max(2, Math.round(d / 0.6))), roughness: 0.85 });
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [end, end, roof, roof, front, front]);
     b.position.set(x, height(x, z) + h / 2, z); b.rotation.y = 0.2 + (r() - 0.5) * 0.25;
     b.castShadow = true; b.receiveShadow = true; g.add(b);
   }

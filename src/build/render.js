@@ -11,6 +11,7 @@ const icon = {
   close: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18"/></svg>',
   search: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>',
   pause: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14"/></svg>',
+  sun: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 17h16M7 17a5 5 0 0 1 10 0M12 7V5M6.2 9.2 4.8 7.8M17.8 9.2l1.4-1.4"/></svg>',
   list: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   grid: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>',
   wheel: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.2"/><path d="M12 3.5v6.3M4.6 15.5l5.4-2.4M19.4 15.5 14 13.1"/></svg>',
@@ -125,6 +126,7 @@ export function renderPage(t, all, cars) {
     <ol>${h.steps.map((s, i) => `<li><button type="button" class="rail__btn" data-goto="${i}"${i === 0 ? ' aria-current="step"' : ''}><span class="mono">0${i + 1}</span><span class="rail__name">${esc(s.name)}</span><span class="rail__bar" aria-hidden="true"><i></i></span></button></li>`).join('')}</ol>
     <div class="rail__tools">
       <button type="button" class="motion-toggle" aria-pressed="false" data-label-stop="${esc(h.stop)}" data-label-start="${esc(h.start)}">${icon.pause}<span>${esc(h.stop)}</span></button>
+      <button type="button" class="look-toggle" aria-pressed="false" hidden>${icon.sun}<span>${esc(h.golden)}</span></button>
       <a class="rail__skip" href="#manifest">${esc(h.skipMap)} ${icon.down}</a>
     </div>
   </nav>

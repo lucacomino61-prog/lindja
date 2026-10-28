@@ -1,4 +1,5 @@
 Poly Haven assets (CC0, https://polyhaven.com/license):
-- kloofendal_48d_partly_cloudy_puresky (HDRI)
+- kloofendal_48d_partly_cloudy_puresky, qwantani_sunset_puresky (HDRIs)
 - asphalt_02, concrete_floor_02, aerial_grass_rock (textures)
 Used only in the offline film render.
+Relief (world/assets/dem.json, tools/dem.mjs): AWS Terrain Tiles, open elevation from SRTM and other public sources.

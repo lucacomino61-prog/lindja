@@ -3,8 +3,10 @@
 import { NodeIO } from '@gltf-transform/core';
 import { ALL_EXTENSIONS } from '@gltf-transform/extensions';
 import { getBounds } from '@gltf-transform/functions';
+import { MeshoptDecoder } from 'meshoptimizer';
 
-const io = new NodeIO().registerExtensions(ALL_EXTENSIONS);
+await MeshoptDecoder.ready;
+const io = new NodeIO().registerExtensions(ALL_EXTENSIONS).registerDependencies({ 'meshopt.decoder': MeshoptDecoder }); // reads compressed exports too
 for (const f of process.argv.slice(2)) {
   const doc = await io.read(f);
   const root = doc.getRoot();

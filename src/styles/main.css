@@ -172,9 +172,10 @@ html { scrollbar-color: var(--ink-50) var(--stone-2); }
 .rail__bar i { position: absolute; inset: 0; background: var(--signal); transform: scaleX(var(--p, 0)); transform-origin: left; }
 .rail__btn[aria-current] .rail__bar { transform: scaleX(1); }
 .rail__tools { display: grid; gap: 2px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--rule); }
-.motion-toggle, .rail__skip { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 2px; background: none; font: 500 0.8125rem/1 var(--f-text); color: var(--ink); text-decoration: none; cursor: pointer; }
-.motion-toggle:hover, .rail__skip:hover { background: var(--stone-2); }
-.motion-toggle[aria-pressed='true'] .i { stroke: var(--signal); }
+.motion-toggle, .look-toggle, .rail__skip { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 10px; border: 0; border-radius: 2px; background: none; font: 500 0.8125rem/1 var(--f-text); color: var(--ink); text-decoration: none; cursor: pointer; }
+.motion-toggle:hover, .look-toggle:hover, .rail__skip:hover { background: var(--stone-2); }
+.motion-toggle[aria-pressed='true'] .i, .look-toggle[aria-pressed='true'] .i { stroke: var(--signal); }
+.look-toggle[hidden] { display: none; }
 .hero__hint { position: absolute; left: 50%; top: calc(var(--header-h) + 34px); translate: -50% 0; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgb(16 20 24 / 0.78); color: var(--limestone); border-radius: 99px; font-size: 0.8125rem; transition: opacity 400ms var(--ease-out); }
 .hero[data-step='4'] .hero__hint, html[data-scrolled] .hero__hint { opacity: 0; }
 

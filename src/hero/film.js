@@ -26,6 +26,29 @@ export class Film {
   }
   attachStandby() { if (!this.B.src) { this.B.preload = 'auto'; this.B.src = this.src; } }
 
+  // Change the light (day / golden hour: same cut, same frames). The standby video loads the other file at a point
+  // just ahead of the playing one, then dissolves in; the old one becomes the standby on the new file.
+  async setSource(src, gsap) {
+    if (src === this.src) return;
+    this.src = src;
+    if (!this.A.src) return; // not started yet: load() will pick it up
+    while (this.busy) await new Promise((r) => setTimeout(r, 60));
+    this.busy = true;
+    const next = this.B;
+    next.pause(); next.preload = 'auto'; next.src = src;
+    await new Promise((r) => (next.readyState >= 1 ? r() : next.addEventListener('loadedmetadata', r, { once: true })));
+    const lead = 0.25;
+    await new Promise((r) => { next.addEventListener('seeked', r, { once: true }); next.currentTime = this.A.currentTime + lead; });
+    const wait = (next.currentTime - this.A.currentTime) * 1000;
+    if (wait > 0 && wait < 1000) await new Promise((r) => setTimeout(r, wait));
+    this.swap(0.5, gsap);
+    this.cue = null;
+    const old = this.B;
+    await new Promise((r) => setTimeout(r, 600)); // let the dissolve finish before the old one changes file
+    if (old === this.B) old.src = src; // the old one: standby on the new file
+    this.busy = false;
+  }
+
   park(f) {
     // pre-seek the hidden video; resolves when its frame is decoded
     const v = this.B;

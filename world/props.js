@@ -5,23 +5,38 @@ import * as THREE from 'three';
 import { mat, C, wordTexture, shadowed, person } from './kit.js';
 import * as models from './models.js';
 import { fit } from './models.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
 
 const TAU = Math.PI * 2;
 const box = (w, h, d) => new THREE.BoxGeometry(w, h, d);
 function m(geo, material, x = 0, y = 0, z = 0) { const o = new THREE.Mesh(geo, material); o.position.set(x, y, z); o.castShadow = true; o.receiveShadow = true; return o; }
 
-export function tugboat(color = '#C8352B') {
+// harbour tug: the Sketchfab model (world/models.js) at its waterline; the tug paths run at y = 0.15
+export function tugboat() {
+  const g = new THREE.Group(), inner = new THREE.Group();
+  for (const p of models.tug) inner.add(m(p.geo, p.material));
+  inner.position.y = -0.55 - 0.13;
+  g.add(inner);
+  return shadowed(g);
+}
+// a dock worker in hi-vis at work (skinned Sketchfab figure with its own mixer); userData.work(tau) poses it,
+// a whole number of animation cycles per loop so the loop closes
+export function dockWorker(offset = 0, period = 6) {
   const g = new THREE.Group();
-  const sh = new THREE.Shape(); sh.moveTo(-0.9, -2); sh.lineTo(0.9, -2); sh.lineTo(0.95, 1.1); sh.quadraticCurveTo(0.6, 2.2, 0, 2.4); sh.quadraticCurveTo(-0.6, 2.2, -0.95, 1.1); sh.closePath();
-  const hull = new THREE.ExtrudeGeometry(sh, { depth: 0.9, bevelEnabled: true, bevelSize: 0.12, bevelThickness: 0.12, bevelSegments: 2 }); hull.rotateX(-Math.PI / 2); hull.translate(0, -0.45, 0);
-  g.add(m(hull, mat(C.ink)));
-  const deck = new THREE.ExtrudeGeometry(sh, { depth: 0.16, bevelEnabled: false }); deck.rotateX(-Math.PI / 2); deck.scale(0.98, 1, 0.98); deck.translate(0, 0.45, 0);
-  g.add(m(deck, mat(color)));
-  for (let i = 0; i < 8; i++) { const a = (i / 8) * TAU; const t = m(new THREE.TorusGeometry(0.16, 0.07, 6, 10), mat('#1B1D21'), Math.cos(a) * 0.98, 0.25, Math.sin(a) * 1.5 + 0.2); t.rotation.y = -a; t.rotation.x = Math.PI / 2; g.add(t); }
-  g.add(m(box(1.1, 0.75, 1.2), mat(C.white), 0, 0.95, 0.35));
-  g.add(m(box(1.14, 0.22, 1.24), mat('#1C2A33', { roughness: 0.2 }), 0, 1.12, 0.35));
-  g.add(m(box(0.4, 0.7, 0.4), mat(color), 0, 1.4, -0.45));
-  g.add(m(box(0.42, 0.12, 0.42), mat(C.ink), 0, 1.8, -0.45));
+  const w = cloneSkinned(models.workerGltf.scene);
+  w.scale.setScalar(0.36 / 3.2); // 1.8 m
+  w.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; o.frustumCulled = false; } });
+  g.add(w);
+  const clip = models.workerGltf.animations[0], mixer = new THREE.AnimationMixer(w);
+  mixer.clipAction(clip).play();
+  const k = Math.max(1, Math.round(period / clip.duration));
+  g.userData.work = (tau) => mixer.setTime((((tau / period + offset) % 1 + 1) % 1) * k * clip.duration);
+  return g;
+}
+// forklift (Sketchfab), nose +z
+export function forkliftTruck() {
+  const g = new THREE.Group();
+  for (const p of models.forklift) g.add(m(p.geo, p.material));
   return shadowed(g);
 }
 

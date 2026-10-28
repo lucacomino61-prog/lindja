@@ -37,10 +37,21 @@ async function build(src, dst, { tex, target }) {
   console.log(`${dst.split(/[\\/]/).pop().padEnd(24)} ${String(Math.round(before)).padStart(7)} → ${String(Math.round(tris(doc))).padStart(7)} tris  ${(statSync(dst).size / 1e6).toFixed(2)} MB`);
 }
 
+// one full-detail copy (the film is rendered offline: quality over weight). Trees thin their leaf cards at load for the
+// far rows instead (world/models.js); only the million-triangle tug is simplified, to a size the GPU still renders fast
+const SINGLE = {
+  'tree-olive': { tex: 2048 }, 'tree-cypress': { tex: 2048 }, 'tree-pine': { tex: 2048 },
+  tugboat: { tex: 1024, target: 300000 }, worker: { tex: 1024 }, forklift: { tex: 1024 },
+};
 for (const f of readdirSync(rawDir).filter((f) => f.endsWith('.glb'))) {
   const name = f.slice(0, -4);
   if (only.length && !only.includes(name)) continue;
   const src = join(rawDir, f);
+  if (SINGLE[name]) {
+    await build(src, join(out, f), SINGLE[name]);
+    if (name === 'tree-olive' || name === 'tree-cypress') await build(src, join(out, `${name}-lo.glb`), { tex: 1024, target: 6000 }); // its bark feeds the far trees
+    continue;
+  }
   await build(src, join(out, f), { tex: name.startsWith('ship') ? 2048 : 1024 });
   if (name.startsWith('car-')) await build(src, join(out, `${name}-lo.glb`), { tex: 256, target: 6000 });
 }

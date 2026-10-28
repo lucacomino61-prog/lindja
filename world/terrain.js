@@ -129,6 +129,7 @@ function seaUniforms() {
     uPhase: { value: 0 },
     uShipA: { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }, // x, z, bow direction x, z
     uShipB: { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }, // length, beam, under way (0/1), -
+    uRefl: { value: null }, uReflMatrix: { value: new THREE.Matrix4() }, uReflOn: { value: 0 }, // planar reflection (world.js)
     uBeach: { value: SEA_COL.beach }, uShallow: { value: SEA_COL.shallow }, uMid: { value: SEA_COL.mid }, uDeep: { value: SEA_COL.deep },
   };
 }
@@ -146,7 +147,8 @@ function seaMaterial(uniforms, swell) {
       .replace('#include <common>', `#include <common>
         uniform float uPhase;
         attribute float aShore; attribute float aDepth;
-        varying float vShore; varying float vDepth; varying float vSwell; varying vec3 vWPos;`)
+        varying float vShore; varying float vDepth; varying float vSwell; varying vec3 vWPos;
+        uniform mat4 uReflMatrix; varying vec4 vRefl;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vShore = aShore; vDepth = aDepth; vSwell = 0.0;
         #ifdef SWELL
@@ -157,12 +159,14 @@ function seaMaterial(uniforms, swell) {
           transformed.y += vSwell * (0.11 * sin(position.x * 0.9 + position.z * 0.35 + a) + 0.07 * sin(position.z * 1.3 - position.x * 0.4 - a) + 0.04 * sin(position.x * 2.3 + position.z * 1.9 + 2.0 * a));
         #endif`)
       .replace('#include <worldpos_vertex>', `#include <worldpos_vertex>
-        vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;`);
+        vWPos = (modelMatrix * vec4(transformed, 1.0)).xyz;
+        vRefl = uReflMatrix * vec4(vWPos, 1.0);`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         uniform float uPhase; uniform vec4 uShipA[4]; uniform vec4 uShipB[4];
         uniform vec3 uBeach; uniform vec3 uShallow; uniform vec3 uMid; uniform vec3 uDeep;
         varying float vShore; varying float vDepth; varying float vSwell; varying vec3 vWPos;
+        uniform sampler2D uRefl; uniform float uReflOn; varying vec4 vRefl; vec2 seaTilt;
         float seaHash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         // value noise whose lattice wraps every per cells along x (the wake scrolls one period per loop)
         float seaNoise(vec2 p, float per) {
@@ -213,6 +217,10 @@ function seaMaterial(uniforms, swell) {
         }`)
       .replace('#include <roughnessmap_fragment>', `#include <roughnessmap_fragment>
         roughnessFactor = mix(roughnessFactor + vShore * 0.06, 0.7, seaFoam);`)
+      .replace('#include <lights_fragment_end>', `
+        // the mirrored scene in place of the sky probe: ships, cranes and quays show in the water, rippled by the waves
+        if (uReflOn > 0.5) radiance = texture2D(uRefl, vRefl.xy / vRefl.w + seaTilt * 0.09).rgb;
+        #include <lights_fragment_end>`)
       .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
         {
           vec2 p = vWPos.xz;
@@ -227,6 +235,7 @@ function seaMaterial(uniforms, swell) {
                             0.11 * 0.35 * cos(p.x * 0.9 + p.y * 0.35 + a) + 0.07 * 1.3 * cos(p.y * 1.3 - p.x * 0.4 - a) + 0.04 * 1.9 * cos(p.x * 2.3 + p.y * 1.9 + 2.0 * a));
           vec3 nW = normalize(vec3(-g.x, 1.0, -g.y));
           nW = normalize(mix(nW, vec3(0.0, 1.0, 0.0), seaFoam * 0.7));
+          seaTilt = nW.xz;
           normal = normalize((viewMatrix * vec4(nW, 0.0)).xyz);
         }`);
   };

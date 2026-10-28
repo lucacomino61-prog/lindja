@@ -1,7 +1,9 @@
 // The relief model's geography: two coasts on one board. Korea's west coast (Incheon) on the east end,
-// the open sea in the middle, Albania's coast (Durrës) and Tirana on the west end. The board is a
-// stylised diorama, not a map: distances are compressed, miniatures are not.
+// the open sea in the middle, Albania's coast (Durrës) and Tirana on the west end. Distances are compressed
+// (0.268 km per unit, Durrës port to Tirana matched) while the miniatures keep 0.2 units per metre; the land is the
+// real relief (open AWS Terrain Tiles, tools/dem.mjs → assets/dem.json), Albania mirrored so its coast faces the sea.
 import { simplex2, smoothstep, lerp, clamp } from './noise.js';
+import DEM from './assets/dem.json';
 
 export const MAP = { w: 940, d: 420, cell: 1.6 };
 
@@ -19,7 +21,7 @@ export const STATIONS = [
 export const ROAD_K = [[338, 30], [320, 14], [300, 20], [280, 34], [262, 40], [240, 44], [226, 46]];
 export const ROAD_A = [[-228, 44], [-252, 46], [-276, 40], [-298, 28], [-312, 8], [-320, -2], [-344, 0], [-372, -6], [-420, -18], [-470, -30]];
 
-const n1 = simplex2(11), n2 = simplex2(23), n3 = simplex2(37), n4 = simplex2(51);
+const n1 = simplex2(11), n3 = simplex2(37), n4 = simplex2(51);
 
 export const coastK = (z) => 214 + 8 * Math.sin(z * 0.014 + 0.4) + 6 * n4(z * 0.02, 1.7) + 18 * smoothstep(70, 160, Math.abs(z - 20));
 export const coastA = (z) => -214 - 8 * Math.sin(z * 0.013 + 1.2) - 6 * n4(z * 0.021, 5.3) - 18 * smoothstep(70, 160, Math.abs(z - 20));
@@ -27,7 +29,6 @@ export const coastA = (z) => -214 - 8 * Math.sin(z * 0.013 + 1.2) - 6 * n4(z * 0
 export function inland(x, z) { return x >= 0 ? x - coastK(z) : coastA(z) - x; }
 
 function fbm(f, x, z, oct = 5) { let a = 0.5, s = 0, fr = 1; for (let i = 0; i < oct; i++) { s += a * f(x * fr, z * fr); fr *= 2.03; a *= 0.5; } return s; }
-function ridged(x, z) { let a = 0.55, s = 0, fr = 1; for (let i = 0; i < 5; i++) { const v = 1 - Math.abs(n2(x * fr, z * fr)); s += a * v * v; fr *= 2.1; a *= 0.5; } return s; }
 
 function polyInfo(pts, x, z) {
   let best = Infinity, acc = 0, bestAlong = 0;
@@ -42,15 +43,20 @@ function polyInfo(pts, x, z) {
   return { d: best, along: bestAlong };
 }
 
+// real elevation in board units: metres x vertical exaggeration (Korea's gentler hills a little more)
+const DEM_SCALE = { albania: 0.022, korea: 0.03 };
+function demHeight(x, z) {
+  const name = x > 0 ? 'korea' : 'albania', R = DEM.regions[name], n = R.nx, g = R.m;
+  const fi = (x - R.x0) / DEM.cell, fj = (z - R.z0) / DEM.cell;
+  const i = clamp(Math.floor(fi), 0, R.nx - 2), j = clamp(Math.floor(fj), 0, R.nz - 2), ax = clamp(fi - i, 0, 1), az = clamp(fj - j, 0, 1);
+  const h = (g[j * n + i] * (1 - ax) + g[j * n + i + 1] * ax) * (1 - az) + (g[(j + 1) * n + i] * (1 - ax) + g[(j + 1) * n + i + 1] * ax) * az;
+  return Math.max(0, h) * DEM_SCALE[name];
+}
 export function rawHeight(x, z) {
   const d = inland(x, z);
   if (d < 0) return -1.4 + d * 0.06 + 0.5 * n3(x * 0.03, z * 0.03) - 4 * smoothstep(0, 60, -d); // seabed
-  const korea = x > 0;
-  const plain = 0.5 + 1.5 * smoothstep(0, 70, d) + 0.5 * fbm(n1, x * 0.02, z * 0.02, 3);
-  const hills = smoothstep(14, 110, d) * (4 + 7 * fbm(n1, x * 0.013 + (korea ? 7 : 0), z * 0.013, 4));
-  // Korea: granite ranges close behind the coast; Albania: the hills and Dajti behind Tirana
-  const mount = smoothstep(korea ? 90 : 120, korea ? 200 : 230, d) * (korea ? 52 : 46) * Math.pow(ridged(x * 0.009 + (korea ? 3 : 9), z * 0.009 - 3), 1.7);
-  return plain + hills + mount;
+  // a low coastal plain rising off the beach, the real relief on it, and a little ground texture
+  return 1.25 * smoothstep(0, 7, d) + smoothstep(0, 12, d) * demHeight(x, z) + 0.3 * fbm(n1, x * 0.05, z * 0.05, 3);
 }
 
 export function height(x, z) {

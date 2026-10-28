@@ -7,6 +7,7 @@ const q = new URLSearchParams(location.search);
 const width = +q.get('w') || 1920, height = +q.get('h') || 1080;
 const variant = q.get('variant') || 'desktop';
 const quality = q.get('quality') || 'film';
+const look = q.get('look') || 'day';
 
 async function boot() {
   for (const [u, range] of [[fontUrl2, 'U+0000-00FF'], [fontUrl, 'U+0100-024F']]) {
@@ -16,7 +17,7 @@ async function boot() {
   await document.fonts.load('800 100px "Big Shoulders Display"', 'udha ËË');
   const canvas = document.getElementById('c');
   canvas.style.width = width + 'px'; canvas.style.height = height + 'px';
-  const w = await createWorld({ width, height, variant, canvas, quality });
+  const w = await createWorld({ width, height, variant, canvas, quality, look });
   // warm-up: compile every program once
   w.setFrame(0); w.renderer.compile(w.scene, w.camera); w.render();
 

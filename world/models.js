@@ -79,6 +79,7 @@ function bake(root) {
     for (const k of Object.keys(g.attributes)) if (!['position', 'normal', 'uv'].includes(k)) g.deleteAttribute(k);
     const mats = Array.isArray(o.material) ? o.material : [o.material];
     const m = mats[0];
+    m.vertexColors = false; // colour attributes are dropped below; a material still asking for them renders black
     if (!groups.has(m)) groups.set(m, []);
     groups.get(m).push(g);
   });
@@ -176,10 +177,58 @@ async function loadTransporter() {
 }
 const CAR_LEN_SCALE = 1, CAB_FLIP = false;
 
+// ---------- trees ----------
+// Olive, Italian cypress and pine from Sketchfab. `near`: the full model, for every tree the camera sees close up;
+// `far`: the light export's bark with its leaf cards each grown about its centre, so a thinner crown keeps its mass
+// (trees only seen from the air). Leaves render as alpha-tested cards so they sort and cast shadows correctly.
+export const trees = {};
+const TREE_MODELS = { olive: { file: 'tree-olive', lo: 'tree-olive-lo', h: 1.15, grow: 1.8 }, cypress: { file: 'tree-cypress', lo: 'tree-cypress-lo', h: 2.0, grow: 1.35 }, pine: { file: 'tree-pine', lo: null, h: 2.3, grow: 1 } };
+function leafy(m) {
+  const out = m.clone();
+  const leaf = m.transparent || m.alphaTest > 0;
+  if (leaf) { out.transparent = false; out.alphaTest = 0.45; out.depthWrite = true; out.side = THREE.DoubleSide; }
+  out.roughness = Math.max(out.roughness, 0.75); out.metalness = 0;
+  return { material: out, leaf };
+}
+function standUp(parts, h) { // base on y = 0, centred, h tall
+  const box = new THREE.Box3();
+  for (const p of parts) { p.geo.computeBoundingBox(); box.union(p.geo.boundingBox); }
+  const c = box.getCenter(new THREE.Vector3()), k = h / (box.max.y - box.min.y);
+  for (const p of parts) { p.geo.translate(-c.x, -box.min.y, -c.z); p.geo.scale(k, k, k); p.geo.computeBoundingSphere(); }
+}
+function grow(geo, f) { // every triangle scaled about its own centre (non-indexed geometry)
+  if (f === 1) return geo;
+  const g = geo.clone(), a = g.attributes.position.array;
+  for (let i = 0; i < a.length; i += 9) for (let k = 0; k < 3; k++) { const c = (a[i + k] + a[i + 3 + k] + a[i + 6 + k]) / 3; for (let v = 0; v < 3; v++) a[i + v * 3 + k] = c + (a[i + v * 3 + k] - c) * f; }
+  g.attributes.position.needsUpdate = true; g.computeBoundingSphere();
+  return g;
+}
+async function loadTree(kind) {
+  const { file, lo, h, grow: f } = TREE_MODELS[kind];
+  const prep = async (name) => { const parts = bake(await scene(name)).map((p) => ({ geo: p.geo, ...leafy(p.material) })); standUp(parts, h); return parts; };
+  const near = await prep(file);
+  const far = lo ? (await prep(lo)).map((p) => (p.leaf ? { ...p, geo: grow(p.geo, f) } : p)) : near;
+  trees[kind] = { near, far };
+}
+
+// ---------- harbour tug, dock workers, forklift ----------
+// tug: "Tugboat" (Sketchfab, CC-BY), 32 m, its US ensign removed; workers: "Low-Poly Construction workers (animated)",
+// skinned, cloned per use with their own mixer; forklift: "Forklift low poly" (its body faces point inward: drawn both sides)
+export let tug = null, workerGltf = null, forklift = null;
+async function loadPortKit() {
+  const [tg, wk, fk] = await Promise.all([scene('tugboat'), loader.loadAsync(`${BASE}worker.glb`), scene('forklift')]);
+  tug = bake(tg).filter((p) => p.material.name !== 'material_57').map((p) => ({ geo: p.geo, material: tidy(p.material) }));
+  normalise(tug, 6.4, true);
+  workerGltf = wk;
+  forklift = bake(fk).map((p) => { const m = tidy(p.material); m.side = THREE.DoubleSide; m.metalness = Math.min(m.metalness, 0.4); return { geo: p.geo, material: m }; });
+  normalise(forklift, 0.72, FORK_FLIP);
+}
+const FORK_FLIP = false;
+
 // ---------- ship and containers ----------
 export let ship = null, containerBox = null, containerOpen = null;
 export async function loadModels() {
-  await Promise.all([...Object.keys(CAR_MODELS).map(loadCar), loadTransporter()]);
+  await Promise.all([...Object.keys(CAR_MODELS).map(loadCar), loadTransporter(), ...Object.keys(TREE_MODELS).map(loadTree), loadPortKit()]);
   for (const [a, b] of Object.entries(ALIAS)) cars[a] = cars[b];
   const [s, box, open] = await Promise.all([scene('ship-container'), scene('container-box'), scene('container-open')]);
   s.traverse((o) => { if (o.isMesh && o.material.transparent) { o.material.transparent = false; o.material.depthWrite = true; } }); // the bridge is exported as BLEND for no reason

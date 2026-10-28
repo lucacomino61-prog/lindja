@@ -115,6 +115,30 @@ function slipRoad(curve, width) {
   const l = new THREE.Mesh(ribbon(lines, 2, 4), new THREE.MeshStandardMaterial({ color: '#E8E6DF', roughness: 0.8, side: THREE.DoubleSide })); l.receiveShadow = true; grp.add(l);
   return grp;
 }
+// Identical vehicles along a 3D route (ramps included), one gap per loop, hidden before the start and past the end.
+// Over the first `fastUntil` units they run `factor` times faster and further apart (the highway), easing down to
+// loading pace for the quay and the ramp. Interleave several lines with `offset` (a fraction of the gap) for a mixed queue.
+function chain3(group, curve, { speed, make, offset = 0, fastUntil = 0, factor = 1 }) {
+  const L = curve.getLength(), G = speed * PERIOD;
+  // progress p (constant speed) → arc length s: ds/dp eases from factor to 1 around fastUntil
+  const ps = [0], ss = [0], dp = 0.05, w = 6;
+  while (ss.at(-1) < L) { const k = 1 + (factor - 1) * (1 - THREE.MathUtils.smoothstep(ss.at(-1), fastUntil - w, fastUntil + w)); ps.push(ps.at(-1) + dp); ss.push(ss.at(-1) + k * dp); }
+  const PL = ps.at(-1), n = Math.ceil(PL / G) + 1;
+  const sOf = (p) => { const i = Math.min(ss.length - 2, Math.floor(p / dp)); return ss[i] + (ss[i + 1] - ss[i]) * ((p - ps[i]) / dp); };
+  const items = Array.from({ length: n }, (_, i) => { const v = make(); group.add(v); return { v, p0: (i - 1) * G + offset * G }; });
+  const t = new THREE.Vector3();
+  return (tau) => {
+    for (const it of items) {
+      const p = it.p0 + speed * tau;
+      it.v.visible = p >= 0 && p < PL;
+      if (!it.v.visible) continue;
+      const u = Math.min(1, sOf(p) / L);
+      curve.getPointAt(u, it.v.position); curve.getTangentAt(u, t);
+      it.v.rotation.set(-Math.asin(Math.max(-1, Math.min(1, t.y))), Math.atan2(t.x, t.z), 0, 'YXZ');
+    }
+  };
+}
+const MIX = [['suv', '#F2F2EE'], ['sedan', '#A9AEB3'], ['hatch', '#2D4D78']]; // the three lines of a mixed car queue
 function quay(g, x, y, z0, z1, side) {
   const len = z1 - z0, zc = (z0 + z1) / 2;
   const wall = new THREE.Mesh(new THREE.BoxGeometry(2, 4.4, len), K.mat(K.C.concrete)); wall.position.set(x - side, y - 2.2, zc); wall.receiveShadow = true; g.add(wall);
@@ -156,7 +180,7 @@ function yard() {
   const sK = nearestS(roadK, 300, 22);
   const tr = convoy(g, roadK, { center: sK, half: 50, speed: 3.2, lane: SLOW, make: (i) => V.carTransporter(i + 2) });
   const back = convoy(g, roadK, { center: sK, half: 50, speed: 3.6, dir: -1, lane: SLOW, make: () => V.carTransporter(1) });
-  const kCars = convoy(g, roadK, { center: sK, half: 50, speed: 5.2, lane: FAST, make: () => V.car('sedan', '#A9AEB3', 'lo') });
+  // the inbound fast lane carries the export convoy bound for the car carrier (incheon())
   const kBack = convoy(g, roadK, { center: sK, half: 50, speed: 4.8, dir: -1, lane: FAST, make: () => V.car('hatch', '#1B1D21', 'lo') });
   const inspectors = P.walkers(g, [[331, -24], [331, -36], [329.4, -36], [329.4, -24]], 3, K.C.ink, y);
   const buyers = P.walkers(g, [[312, -23.4], [300, -23.4], [300, -22.6], [312, -22.6]], 2, '#2D4D78', y);
@@ -169,7 +193,7 @@ function yard() {
   ];
   const update = (tau) => {
     const ph = tau / PERIOD;
-    lanes(tau); tr(tau); back(tau); kCars(tau); kBack(tau); inspectors(ph); buyers(ph);
+    lanes(tau); tr(tau); back(tau); kBack(tau); inspectors(ph); buyers(ph);
     flags.forEach((f, i) => P.wave(f, ph + i * 0.13));
   };
   return { id: 'kore', group: g, anchors, update };
@@ -181,35 +205,44 @@ function incheon() {
   const g = new THREE.Group(); g.name = 'port';
   const y = st.pad;
   quay(g, st.quay, y, -6, 68, 1);
+  // south berth: the container ship, worked by the cranes; north berth: the car carrier, loading over its side ramp
   const ship = V.containerShip({ len: 34 });
-  ship.position.set(st.quay - ship.userData.w / 2 - 0.4, 0, 28); ship.rotation.y = Math.PI; g.add(ship);
-  const box = P.openContainer(); g.add(place(box, 225.4, 47.6, { y }));
-  for (const [sz, bz] of [[14, 10], [20, 18], [36, 38], [42, 46]]) g.add(P.mooringLine(new THREE.Vector3(st.quay - 0.6, 1.1, sz), new THREE.Vector3(st.quay + 0.6, y + 0.2, bz), 0.4));
+  ship.position.set(st.quay - ship.userData.w / 2 - 0.4, 0, 16); ship.rotation.y = Math.PI; g.add(ship);
+  const roro = V.carCarrier({ ramp: 1, quayY: y }); roro.position.set(st.quay - roro.userData.w / 2 - 0.4, 0, 54); g.add(roro);
+  for (const [sz, bz] of [[2, -2], [8, 6], [24, 26], [30, 34], [40, 38], [46, 44], [62, 64], [68, 70]]) g.add(P.mooringLine(new THREE.Vector3(st.quay - 0.6, 1.1, sz), new THREE.Vector3(st.quay + 0.6, y + 0.2, bz), 0.4));
   const slots = [];
   for (const x0 of [227.2, 229.8, 232.4]) for (let j = 0; j < 40; j++) { if ((j * 3 + Math.round(x0)) % 9 < 1) continue; slots.push({ x: x0, y, z: 2 + j * 1.0, ry: 0, type: ['suv', 'sedan', 'ev', 'hatch', 'suv'][(j + Math.round(x0)) % 5], color: V.CAR_COLORS[(j * 7 + Math.round(x0)) % V.CAR_COLORS.length] }); }
   g.add(V.carLot(slots));
-  const up = path3([[238, y + 0.02, 62], [233, y + 0.02, 56], [227, y + 0.02, 52.4], [225.4, y + 0.03, 50.2], [225.4, y + 0.03, 48.4], [225.4, y + 0.03, 47.0]]);
-  const loaders = pathRing(g, up, { count: 4, make: () => V.car('suv', '#1B1D21') });
-  const cranes = [16, 30].map((z) => { const c = K.stsCrane(); c.position.set(st.quay + 2.4, y, z); g.add(c); return c; });
+  const cranes = [6, 20].map((z) => { const c = K.stsCrane(); c.position.set(st.quay + 2.4, y, z); g.add(c); return c; });
   K.setBoom(cranes[0], -1.3); // idle, boom up
   // loading: trucks bring LINDJA containers from the stuffing shed at the south end, the crane lifts each into the hold
   const lane = st.quay + 2.4, back = lane + 2, shipX = ship.position.x - lane;
   const cfs = K.shed({ w: 4.6, d: 5, h: 1.7, color: K.C.white, roof: '#3D6FA6' }); g.add(place(cfs, lane + 1, -1.6, { y }));
-  const ring = path3([[lane + 1, y, -2.6], [lane, y, -1.6], [lane, y, 8], [lane, y, 20], [lane, y, 30], [lane, y, 40], [lane + 0.3, y, 41.6], [lane + 1, y, 42.2], [back - 0.3, y, 41.6], [back, y, 40], [back, y, 26], [back, y, 10], [back, y, -1.6]], true);
-  const trucks = truckRing(g, ring, { count: 15, stop: [lane, 30], mode: 'load', make: () => V.terminalTruck() });
+  const ring = path3([[lane + 1, y, -2.6], [lane, y, -1.6], [lane, y, 6], [lane, y, 14], [lane, y, 20], [lane, y, 27], [lane + 0.3, y, 28.6], [lane + 1, y, 29.2], [back - 0.3, y, 28.6], [back, y, 27], [back, y, 16], [back, y, 6], [back, y, -1.6]], true);
+  const trucks = truckRing(g, ring, { count: 11, stop: [lane, 20], mode: 'load', make: () => V.terminalTruck() });
+  // export cars come down the highway, along the quay and up the ramp into the car decks
+  roro.updateMatrixWorld(true);
+  const foot = roro.localToWorld(roro.userData.foot.clone()), door = roro.localToWorld(roro.userData.door.clone());
+  const Lk = roadK.getLength(), road = [];
+  for (let s = 0; s <= Lk - 2; s += 4) { const p = onRoad(roadK, s, FAST); road.push([p.x, p.y, p.z]); }
+  const aboard = path3([...road, [225.8, y + 0.07, 47.6], [227.3, y + 0.07, 50.2], [228.3, y + 0.07, 52.8], [227.4, y + 0.07, foot.z], [foot.x, foot.y + 0.05, foot.z], [door.x, door.y + 0.05, door.z], [door.x - 1.8, door.y + 0.05, door.z]]);
+  const loading = MIX.map(([t, c], k) => chain3(g, aboard, { speed: 1, offset: k / 3, fastUntil: Lk - 6, factor: 3, make: () => V.car(t, c) }));
   const term = K.shed({ w: 10, d: 6, h: 2.2, color: K.C.white, roof: '#3D6FA6' }); g.add(place(term, 258, 10, { y }));
   for (let z = 2; z <= 62; z += 12) g.add(place(P.lightTower(5), 235.2, z, { y }));
-  const tug = pathRing(g, path3([[214, 0.15, 6], [208, 0.15, 12], [212, 0.15, 20], [216.6, 0.15, 12]], true), { count: 1, make: () => P.tugboat(), bob: 0.05 });
-  const dockers = P.walkers(g, [[224.2, 49], [224.2, 56], [225, 56], [225, 49]], 2, '#F2702A', y);
+  const tug = pathRing(g, path3([[211, 0.15, 6], [204, 0.15, 12], [208, 0.15, 20], [213.4, 0.15, 12]], true), { count: 1, make: () => P.tugboat(), bob: 0.05 });
+  // dock crew: two at the ramp foot waving the cars aboard, two in the crane portal; a forklift at the terminal shed
+  const crew = [[foot.x + 0.3, foot.z - 1.1, -1.2], [foot.x + 0.3, foot.z + 1.1, -2.0], [lane + 0.9, 18.6, 1.6], [lane - 0.9, 21.4, -1.4]].map(([x, z, ry], i) => { const w = P.dockWorker(i * 0.27); g.add(place(w, x, z, { y, ry })); return w; });
+  const fork = P.forkliftTruck(); g.add(fork);
   const gulls = [0, 1].map(() => { const b = V.gull(); g.add(b); return b; });
   const anchors = [
-    anchorAt(g, 'port-ship', 217, 1.6, 34),
-    anchorAt(g, 'port-ramp', 222.9, 2, 48),
-    anchorAt(g, 'port-quay', 230, 2, 40),
+    anchorAt(g, 'port-ship', 218.5, 5, 48),
+    anchorAt(g, 'port-ramp', 224, 1.6, 54),
+    anchorAt(g, 'port-quay', 228, 2, 22),
   ];
   const update = (tau) => {
     const ph = tau / PERIOD, a = TAU * ph;
-    loaders(tau); tug(tau); dockers(ph);
+    loading.forEach((c) => c(tau)); tug(tau); crew.forEach((w) => w.userData.work(tau));
+    fork.position.set(256, y, 13.6 + 2.8 * wave(tau)); fork.rotation.y = Math.PI; // in and out of the shed door
     ship.position.y = 0.03 * Math.sin(a);
     V.spinRadar(ship, ph * 2);
     K.craneWork(cranes[1], tau, { mode: 'load', ship: shipX, truckY: 0.72 }); trucks(tau);
@@ -221,7 +254,7 @@ function incheon() {
 // ---------------------------------------------------------------- 2 · at sea
 function sea() {
   const g = new THREE.Group(); g.name = 'deti';
-  const ship = V.containerShip({ len: 34 });
+  const ship = V.carCarrier({ ramp: 1, deployed: false });
   ship.rotation.y = -Math.PI / 2; // heading west (-x): Korea to Albania
   g.add(ship);
   ship.userData.underway = true; // the sea draws its bow wave and wake (terrain.js)
@@ -257,11 +290,15 @@ function durres() {
   const g = new THREE.Group(); g.name = 'durres';
   const y = st.pad;
   quay(g, st.quay, y, -14, 60, -1);
-  const ship = V.containerShip({ len: 34 }); ship.position.set(st.quay + ship.userData.w / 2 + 0.4, 0, 26); g.add(ship);
-  const box = P.openContainer(); g.add(place(box, -226, 6.2, { y, ry: Math.PI }));
-  for (const [sz, bz] of [[12, 8], [18, 16], [34, 36], [40, 44]]) g.add(P.mooringLine(new THREE.Vector3(st.quay + 0.6, 1.1, sz), new THREE.Vector3(st.quay - 0.6, y + 0.2, bz), 0.4));
-  const off = path3([[-226, y + 0.03, 6.8], [-226, y + 0.03, 5.4], [-226, y + 0.03, 3.6], [-227.4, y + 0.02, 0.4], [-228, y + 0.02, -3], [-234, y + 0.02, -5], [-240, y + 0.02, -5], [-245, y + 0.02, -2], [-249, y + 0.02, 4], [-253, y + 0.02, 6.4]]);
-  const unloaders = pathRing(g, off, { count: 4, make: () => V.car('ev', '#F2F2EE') });
+  // south berth: the car carrier, cars driven off down its ramp; north berth: the container ship and the cranes
+  const ship = V.containerShip({ len: 34 }); ship.position.set(st.quay + ship.userData.w / 2 + 0.4, 0, 38); g.add(ship);
+  const roro = V.carCarrier({ ramp: -1, quayY: y }); roro.position.set(st.quay + roro.userData.w / 2 + 0.4, 0, 0); g.add(roro);
+  for (const [sz, bz] of [[24, 20], [30, 28], [46, 48], [52, 56], [-16, -18], [-10, -12], [10, 12], [16, 18]]) g.add(P.mooringLine(new THREE.Vector3(st.quay + 0.6, 1.1, sz), new THREE.Vector3(st.quay - 0.6, y + 0.2, bz), 0.4));
+  // imported cars drive out of the car deck, down the ramp, through customs and into the inspection shed
+  roro.updateMatrixWorld(true);
+  const foot = roro.localToWorld(roro.userData.foot.clone()), door = roro.localToWorld(roro.userData.door.clone());
+  const ashore = path3([[door.x + 1.8, door.y + 0.05, 0], [door.x, door.y + 0.05, 0], [foot.x, foot.y + 0.05, 0], [-228.2, y + 0.03, -1.4], [-231.5, y + 0.03, -4.2], [-234, y + 0.02, -5], [-240, y + 0.02, -5], [-245, y + 0.02, -2], [-249, y + 0.02, 4], [-253, y + 0.02, 6.4]]);
+  const unloading = MIX.map(([t, c], k) => chain3(g, ashore, { speed: 1, offset: k / 3, make: () => V.car(t, c) }));
   const slots = [];
   for (const x0 of [-229.2, -231.8, -234.4]) for (let j = 0; j < 42; j++) { if ((j * 5 + Math.round(-x0)) % 11 < 1.5) continue; slots.push({ x: x0, y, z: 10 + j * 1.0, ry: Math.PI, type: ['suv', 'ev', 'sedan', 'suv', 'hatch'][(j + Math.round(-x0)) % 5], color: V.CAR_COLORS[(j * 5 + Math.round(-x0)) % V.CAR_COLORS.length] }); }
   g.add(V.carLot(slots));
@@ -288,26 +325,29 @@ function durres() {
   const traffic = convoy(g, roadA, { center: sA, half: 45, speed: 4.2, dir: -1, lane: SLOW, make: () => V.car('van', '#F2F2EE', 'lo') });
   const aCars = convoy(g, roadA, { center: sA, half: 45, speed: 5.6, lane: FAST, make: () => V.car('sedan', '#6C7177', 'lo') });
   const aBack = convoy(g, roadA, { center: sA, half: 45, speed: 5.0, dir: -1, lane: FAST, make: () => V.car('ev', '#A9AEB3', 'lo') });
-  const cr = [18, 32].map((z) => { const c = K.stsCrane(); c.position.set(st.quay - 2.4, y, z); c.rotation.y = Math.PI; g.add(c); return c; });
+  const cr = [30, 44].map((z) => { const c = K.stsCrane(); c.position.set(st.quay - 2.4, y, z); c.rotation.y = Math.PI; g.add(c); return c; });
   K.setBoom(cr[1], -1.3); // idle, boom up
   // unloading: empty trucks leave the shed at the north end, the crane sets a container on each, they drive it back in
   const lane = st.quay - 2.4, back = lane - 2, shipX = -(ship.position.x - lane);
   const cfs = K.shed({ w: 4.6, d: 5, h: 1.7, color: K.C.white, roof: K.C.orange }); g.add(place(cfs, lane - 1, 57.4, { y }));
-  const ring = path3([[lane - 1, y, 58.4], [lane, y, 57.4], [lane, y, 48], [lane, y, 32], [lane, y, 18], [lane, y, 14], [lane - 0.3, y, 12.4], [lane - 1, y, 11.8], [back + 0.3, y, 12.4], [back, y, 14], [back, y, 30], [back, y, 46], [back, y, 57.4]], true);
-  const trucks = truckRing(g, ring, { count: 15, stop: [lane, 18], mode: 'unload', make: () => V.terminalTruck() });
+  const ring = path3([[lane - 1, y, 58.4], [lane, y, 57.4], [lane, y, 50], [lane, y, 40], [lane, y, 30], [lane, y, 26], [lane - 0.3, y, 24.4], [lane - 1, y, 23.8], [back + 0.3, y, 24.4], [back, y, 26], [back, y, 36], [back, y, 48], [back, y, 57.4]], true);
+  const trucks = truckRing(g, ring, { count: 12, stop: [lane, 30], mode: 'unload', make: () => V.terminalTruck() });
   for (let z = -10; z <= 58; z += 12) g.add(place(P.lightTower(5), -236.4, z, { y }));
-  const tug = pathRing(g, path3([[-214, 0.15, 2], [-208, 0.15, 8], [-212, 0.15, 16], [-216.6, 0.15, 8]], true), { count: 1, make: () => P.tugboat('#2F6E8C'), bob: 0.05 });
+  const tug = pathRing(g, path3([[-210, 0.15, 22], [-203, 0.15, 28], [-207, 0.15, 36], [-212.4, 0.15, 28]], true), { count: 1, make: () => P.tugboat('#2F6E8C'), bob: 0.05 });
   const officers = P.walkers(g, [[-237.2, -2.6], [-237.2, -7.4], [-236.6, -7.4], [-236.6, -2.6]], 2, '#2D4D78', y);
-  const drivers = P.walkers(g, [[-227.6, 2.4], [-227.6, 9], [-228.2, 9], [-228.2, 2.4]], 2, '#F2702A', y);
+  // dock crew at the ramp foot and in the crane portal; a forklift at the inspection shed
+  const crew = [[foot.x - 0.3, -1.1, 1.2], [foot.x - 0.3, 1.1, 2.0], [lane - 0.9, 28.6, -1.6], [lane + 0.9, 31.4, 1.4]].map(([x, z, ry], i) => { const w = P.dockWorker(0.5 + i * 0.23); g.add(place(w, x, z, { y, ry })); return w; });
+  const fork = P.forkliftTruck(); g.add(fork);
   const flags = brandFlags(g, [-244.6, -243.6], 11, y);
   const anchors = [
-    anchorAt(g, 'durres-ship', -226, 2, 5),
+    anchorAt(g, 'durres-ship', -224, 1.8, 0),
     anchorAt(g, 'durres-customs', -240, 4, -5),
     anchorAt(g, 'durres-kolaudim', -232, 2, 20),
   ];
   const update = (tau) => {
     const ph = tau / PERIOD, a = TAU * ph;
-    unloaders(tau); tr(tau); traffic(tau); aCars(tau); aBack(tau); tug(tau); officers(ph); drivers(ph);
+    unloading.forEach((c) => c(tau)); tr(tau); traffic(tau); aCars(tau); aBack(tau); tug(tau); officers(ph); crew.forEach((w) => w.userData.work(tau));
+    fork.position.set(-250, y, 9.1 + 2.8 * wave(tau, 1, 1.3)); fork.rotation.y = Math.PI;
     ship.position.y = 0.03 * Math.sin(a);
     V.spinRadar(ship, ph * 2);
     K.craneWork(cr[0], tau, { mode: 'unload', ship: shipX, truckY: 0.72 }); trucks(tau);

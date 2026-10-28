@@ -330,20 +330,66 @@ export function warehouse({ w = 20, d = 9, h = 2.4, doors = 8, sign = 'udha' } =
   }
   return shadowed(g);
 }
-export function office({ w = 5, d = 4, floors = 4 } = {}) {
-  const g = new THREE.Group();
-  const fh = 0.7;
-  for (let f = 0; f < floors; f++) {
-    g.add(mesh(box(w, fh * 0.62, d), mat(C.glass, { roughness: 0.25 }), 0, f * fh + fh * 0.4, 0));
-    g.add(mesh(box(w + 0.08, fh * 0.38, d + 0.08), mat(C.white), 0, f * fh + fh * 0.86, 0));
+// ---------- buildings (0.2 units per metre) ----------
+const canvasTex = (w, h, draw) => { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; draw(cv.getContext('2d'), w, h); const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.wrapS = t.wrapT = THREE.RepeatWrapping; t.anisotropy = 8; return t; };
+const RIBS = canvasTex(128, 64, (g, w, h) => { // trapezoidal metal cladding, one rib per 32 px
+  g.fillStyle = '#E4E5E2'; g.fillRect(0, 0, w, h);
+  for (let x = 0; x < w; x += 32) { g.fillStyle = '#F6F6F3'; g.fillRect(x + 4, 0, 8, h); g.fillStyle = '#B9BCBC'; g.fillRect(x + 12, 0, 3, h); g.fillStyle = '#CDD0CF'; g.fillRect(x, 0, 3, h); }
+});
+const ROLLER = canvasTex(64, 128, (g, w, h) => { g.fillStyle = '#7C8187'; g.fillRect(0, 0, w, h); g.fillStyle = '#62676D'; for (let y = 0; y < h; y += 8) g.fillRect(0, y, w, 2); });
+const CURTAIN = canvasTex(256, 256, (g, w, h) => { // two storeys of curtain wall: glass, mullions, spandrels
+  for (let f = 0; f < 2; f++) {
+    const y0 = f * 128;
+    const grad = g.createLinearGradient(0, y0, 0, y0 + 96); grad.addColorStop(0, '#6F8797'); grad.addColorStop(1, '#3E5260');
+    g.fillStyle = grad; g.fillRect(0, y0, w, 96);
+    g.fillStyle = '#C9CDCF'; g.fillRect(0, y0 + 96, w, 32); // spandrel
+    g.fillStyle = '#2A3238'; for (let x = 0; x < w; x += 64) g.fillRect(x, y0, 5, 128); g.fillRect(0, y0 + 94, w, 4);
   }
-  g.add(mesh(box(w + 0.1, 0.2, d + 0.1), mat(C.orange), 0, floors * fh + 0.1, 0));
+});
+function ribbedMat(color, repX, repY) { const t = RIBS.clone(); t.repeat.set(repX, repY); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ color, map: t, roughness: 0.5, metalness: 0.35 }); }
+
+// warehouse / shed: ribbed cladding on a concrete plinth, a low gable roof with skylight strips, gutters, downpipes,
+// roller doors and a personnel door on the front (+z); base at y = 0
+export function shed({ w = 10, d = 6, h = 2, color = C.white, roof = C.grey, doors = true } = {}) {
+  const g = new THREE.Group();
+  const long = ribbedMat(color, w / 0.85, 1), short = ribbedMat(color, d / 0.85, 1), plain = mat(color);
+  g.add(mesh(new THREE.BoxGeometry(w, h, d), [short, short, plain, plain, long, long], 0, h / 2, 0));
+  g.add(mesh(box(w + 0.04, 0.22, d + 0.04), mat('#A9A69F', { roughness: 0.9 }), 0, 0.11, 0)); // plinth
+  // gable roof, ridge along x
+  const rise = (d / 2) * Math.tan(0.14), slope = Math.hypot(d / 2 + 0.2, rise);
+  const roofMat = new THREE.MeshStandardMaterial({ color: roof, roughness: 0.55, metalness: 0.3, map: (() => { const t = RIBS.clone(); t.repeat.set(w / 0.9, 1); t.rotation = Math.PI / 2; t.needsUpdate = true; return t; })() });
+  for (const s of [-1, 1]) {
+    const p = mesh(box(w + 0.3, 0.06, slope), roofMat, 0, h + rise / 2, s * (d / 4 + 0.05)); p.rotation.x = s * 0.14; g.add(p);
+    for (let x = -w / 2 + 1.2; x < w / 2 - 0.8; x += 2.4) { const sk = mesh(box(0.7, 0.03, slope * 0.55), mat('#E8F0F2', { roughness: 0.2, emissive: '#DDE7EA', emissiveIntensity: 0.15 }), x, h + rise / 2 + 0.04, s * (d / 4 + 0.05)); sk.rotation.x = s * 0.14; g.add(sk); }
+  }
+  const gable = new THREE.Shape(); gable.moveTo(-d / 2, 0); gable.lineTo(0, rise); gable.lineTo(d / 2, 0); gable.closePath();
+  for (const s of [-1, 1]) { const gg = new THREE.ShapeGeometry(gable); gg.rotateY(Math.PI / 2); const gm = mesh(gg, plain, s * w / 2, h, 0); if (s < 0) gm.rotation.y = Math.PI; g.add(gm); }
+  for (const s of [-1, 1]) g.add(mesh(box(w + 0.3, 0.07, 0.08), mat('#8C9196', { metalness: 0.6, roughness: 0.4 }), 0, h - 0.02, s * (d / 2 + 0.1))); // gutters
+  for (const x of [-w / 2 + 0.15, w / 2 - 0.15]) for (const s of [-1, 1]) g.add(mesh(box(0.05, h, 0.05), mat('#8C9196', { metalness: 0.6 }), x, h / 2, s * (d / 2 + 0.06)));
+  if (doors) {
+    const n = Math.max(1, Math.floor(w / 3.2)), dw = Math.min(1.5, (w / n) * 0.55), dh = Math.min(1.4, h * 0.72);
+    for (let i = 0; i < n; i++) {
+      const x = -w / 2 + (w / n) * (i + 0.5);
+      const rd = new THREE.Mesh(new THREE.PlaneGeometry(dw, dh), new THREE.MeshStandardMaterial({ map: ROLLER, roughness: 0.6, metalness: 0.4, polygonOffset: true, polygonOffsetFactor: -2 })); rd.position.set(x, dh / 2 + 0.05, d / 2 + 0.012); rd.receiveShadow = true; g.add(rd);
+      g.add(mesh(box(dw + 0.12, 0.08, 0.06), mat('#3A3F45'), x, dh + 0.09, d / 2 + 0.03));
+      g.add(mesh(box(0.06, 0.1, 0.12), mat('#F2B630', { emissive: '#F2B630', emissiveIntensity: 0.2 }), x - dw / 2 - 0.1, 0.06, d / 2 + 0.15)); // dock bumper
+    }
+    g.add(mesh(box(0.36, 0.5, 0.03), mat('#2D3238'), w / 2 - 0.5, 0.3, d / 2 + 0.015)); // personnel door
+  }
   return shadowed(g);
 }
-export function shed({ w = 10, d = 6, h = 2, color = C.white, roof = C.grey } = {}) {
+// office block: reflective curtain wall with mullions and spandrels, parapet, rooftop plant, entrance canopy and the brand band
+export function office({ w = 5, d = 4, floors = 4 } = {}) {
   const g = new THREE.Group();
-  g.add(mesh(box(w, h, d), mat(color), 0, h / 2, 0));
-  const r = mesh(box(w + 0.3, 0.2, d + 0.3), mat(roof), 0, h + 0.1, 0); g.add(r);
+  const fh = 0.7, H = floors * fh;
+  const glass = (rep) => { const t = CURTAIN.clone(); t.repeat.set(rep, floors / 2); t.needsUpdate = true; return new THREE.MeshStandardMaterial({ map: t, roughness: 0.12, metalness: 0.55 }); };
+  const gw = glass(w / 2.4), gd = glass(d / 2.4), top = mat('#BFC2C1');
+  g.add(mesh(new THREE.BoxGeometry(w, H, d), [gd, gd, top, top, gw, gw], 0, H / 2, 0));
+  g.add(mesh(box(w + 0.12, 0.22, d + 0.12), mat(C.orange), 0, H + 0.11, 0)); // brand parapet band
+  g.add(mesh(box(w * 0.4, 0.3, d * 0.35), mat('#9EA3A6', { metalness: 0.4 }), -w * 0.15, H + 0.37, 0)); // plant
+  g.add(mesh(box(0.5, 0.22, 0.5), mat('#9EA3A6', { metalness: 0.4 }), w * 0.28, H + 0.33, -d * 0.2));
+  g.add(mesh(box(1.6, 0.06, 0.9), mat('#E8E9E5'), 0, 0.62, d / 2 + 0.45)); // entrance canopy
+  for (const x of [-0.7, 0.7]) g.add(mesh(box(0.05, 0.6, 0.05), mat('#3A3F45'), x, 0.3, d / 2 + 0.85));
   return shadowed(g);
 }
 
@@ -424,6 +470,22 @@ export function customsCanopy({ lanes = 5, laneW = 1.6, depth = 5, sign = 'DOGAN
       g.add(shadowed(arm)); barriers.push(arm);
     }
   }
+  // under the roof: light strips; on the ground: lane lines, stop lines, speed bumps; traffic lights and an ANPR gantry
+  for (let i = 0; i < lanes; i++) {
+    const x = -width / 2 + 0.3 + (i + 0.5) * laneW;
+    g.add(mesh(box(laneW * 0.5, 0.03, depth * 0.8), mat('#FFF6E2', { emissive: '#FFF1D6', emissiveIntensity: 0.6 }), x, 2.39, 0));
+    for (const z of [-depth / 2 - 0.6, depth / 2 + 0.6]) { const sb = mesh(box(laneW * 0.7, 0.025, 0.14), mat('#E7C13A'), x, 0.012, z); g.add(sb); for (let k = -1; k <= 1; k += 2) g.add(mesh(box(laneW * 0.1, 0.027, 0.141), mat('#1C1D1F'), x + k * laneW * 0.15, 0.013, z)); }
+    g.add(mesh(box(laneW * 0.8, 0.012, 0.06), mat('#ECEAE3'), x, 0.007, depth / 2 + 0.25)); // stop line
+    const tl = new THREE.Group();
+    tl.add(mesh(box(0.08, 0.2, 0.06), mat('#16181A')));
+    tl.add(mesh(box(0.05, 0.05, 0.02), mat('#3DDB6B', { emissive: '#3DDB6B', emissiveIntensity: 1.4 }), 0, -0.05, 0.035));
+    tl.add(mesh(box(0.05, 0.05, 0.02), mat('#5A1C1C'), 0, 0.05, 0.035));
+    tl.position.set(x - laneW / 2 + 0.1, 1.4, depth / 2 - 0.5); g.add(tl);
+  }
+  for (let i = 0; i <= lanes; i++) g.add(mesh(box(0.05, 0.012, depth + 4), mat('#ECEAE3'), -width / 2 + 0.3 + i * laneW, 0.006, 0));
+  g.add(mesh(box(width, 0.12, 0.12), mat('#5C6166', { metalness: 0.5 }), 0, 2.0, -depth / 2 - 1.6)); // ANPR gantry
+  for (const x of [-width / 2, width / 2]) g.add(mesh(box(0.1, 2.0, 0.1), mat('#5C6166', { metalness: 0.5 }), x, 1.0, -depth / 2 - 1.6));
+  for (let i = 0; i < lanes; i++) g.add(mesh(box(0.1, 0.08, 0.14), mat('#1C1D1F'), -width / 2 + 0.3 + (i + 0.5) * laneW, 1.9, -depth / 2 - 1.6));
   g.userData = { barriers, width };
   return shadowed(g);
 }
@@ -438,31 +500,31 @@ function instanced(geo, material, matrices, colors) {
 }
 const M = (x, y, z, sx = 1, sy = 1, sz = 1, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(sx, sy, sz));
 
-export function scatterTrees(points) {
-  // points: [{x,y,z,kind,s}] kind: olive | cypress | pine
-  const g = new THREE.Group();
-  const trunks = [], olives = [], cyps = [], pinesA = [], pinesB = [];
-  const oliveTone = [], cypTone = [], pineTone = [];
-  const r = rng(77);
+export const TREE_LAYER = 2; // the reflection camera leaves trees out (world.js)
+export function scatterTrees(points, { near = () => true } = {}) {
+  // Sketchfab olives, cypresses and pines (world/models.js), instanced per 48-unit tile so the camera only draws the
+  // tiles in view; near(x, z) picks the full model, otherwise the far copy. points: [{x,y,z,kind,s}]
+  const g = new THREE.Group(), r = rng(77), TILE = 48;
+  const groups = new Map();
   for (const p of points) {
-    const s = p.s || 1;
-    if (p.kind === 'olive') {
-      trunks.push(M(p.x, p.y + 0.18 * s, p.z, s, s, s));
-      olives.push(M(p.x, p.y + 0.55 * s, p.z, 1.15 * s, 0.75 * s, 1.15 * s, r() * 6));
-      oliveTone.push(r() < 0.5 ? C.olive : '#8E9966');
-    } else if (p.kind === 'cypress') {
-      cyps.push(M(p.x, p.y + 0.9 * s, p.z, s, s, s, r() * 6)); cypTone.push(r() < 0.5 ? C.cypress : '#4A6644');
-    } else {
-      pinesA.push(M(p.x, p.y + 0.75 * s, p.z, s, s, s, r() * 6)); pinesB.push(M(p.x, p.y + 1.25 * s, p.z, 0.7 * s, 0.75 * s, 0.7 * s, r() * 6));
-      pineTone.push(r() < 0.5 ? C.pine : '#5B7A50');
-    }
+    const key = [p.kind, near(p.x, p.z) ? 'near' : 'far', Math.floor(p.x / TILE), Math.floor(p.z / TILE)].join('|');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
   }
-  if (trunks.length) g.add(instanced(cyl(0.05, 0.07, 0.36, 5), mat('#6B5440'), trunks));
-  if (olives.length) g.add(instanced(new THREE.IcosahedronGeometry(0.42, 0), mat('#ffffff'), olives, oliveTone));
-  if (cyps.length) g.add(instanced(new THREE.ConeGeometry(0.2, 1.8, 6), mat('#ffffff'), cyps, cypTone));
-  if (pinesA.length) {
-    g.add(instanced(new THREE.ConeGeometry(0.55, 1.2, 7), mat('#ffffff'), pinesA, pineTone));
-    g.add(instanced(new THREE.ConeGeometry(0.55, 1.0, 7), mat('#ffffff'), pinesB, pineTone));
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  for (const [key, list] of groups) {
+    const [kind, lod] = key.split('|');
+    const mats = list.map((p) => { const s = (p.s || 1) * (0.85 + r() * 0.3); return m4.compose(pos.set(p.x, p.y - 0.03, p.z), q.setFromEuler(e.set(0, r() * 6.283, 0)), sc.set(s, s * (0.9 + r() * 0.2), s)).clone(); });
+    const tints = list.map(() => new THREE.Color(0.82 + r() * 0.22, 0.86 + r() * 0.18, 0.8 + r() * 0.18)); // a little variety in the crowns
+    for (const part of models.trees[kind][lod]) {
+      const im = new THREE.InstancedMesh(part.geo, part.material, list.length);
+      mats.forEach((mm, i) => im.setMatrixAt(i, mm));
+      if (part.leaf) tints.forEach((c, i) => im.setColorAt(i, c));
+      im.castShadow = true; im.receiveShadow = true;
+      im.computeBoundingSphere();
+      im.layers.set(TREE_LAYER);
+      g.add(im);
+    }
   }
   return g;
 }

@@ -26,6 +26,26 @@ export async function initHero(app) {
   const variant = phone ? 'phone' : 'desktop';
   const film = new Film(va, vb, data, variant);
 
+  // ---------- light: daylight or golden hour (once the golden film exists); remembered on this device ----------
+  const srcs = { day: data.variants[variant].src, golden: data.variants[variant].srcGolden };
+  const lookBtn = hero.querySelector('.look-toggle');
+  let look = 'day';
+  try { if (srcs.golden && localStorage.getItem('lindja-look') === 'golden') look = 'golden'; } catch {}
+  const sfx = () => (look === 'golden' ? '-golden' : '');
+  film.src = srcs[look];
+  if (look === 'golden') { posterImg.src = '/media/scene-0-desktop-golden.webp'; if (posterSrc) posterSrc.srcset = '/media/scene-0-phone-golden.webp'; }
+  if (srcs.golden && lookBtn) {
+    lookBtn.hidden = false;
+    lookBtn.setAttribute('aria-pressed', String(look === 'golden'));
+    lookBtn.addEventListener('click', async () => {
+      look = look === 'golden' ? 'day' : 'golden';
+      try { localStorage.setItem('lindja-look', look); } catch {}
+      lookBtn.setAttribute('aria-pressed', String(look === 'golden'));
+      showStill(step); // the poster under the film, or the still when motion is off
+      await film.setSource(srcs[look], gsap);
+    });
+  }
+
   let step = 0;
   let locked = window.scrollY < 4;
   let playing = false; // film has taken over from the stills
@@ -131,7 +151,7 @@ export async function initHero(app) {
 
   // ---------- stills (loading, stopped motion) ----------
   function showStill(k) {
-    const d = `/media/scene-${k}-desktop.webp`, p = `/media/scene-${k}-phone.webp`;
+    const d = `/media/scene-${k}-desktop${sfx()}.webp`, p = `/media/scene-${k}-phone${sfx()}.webp`;
     if (posterImg.getAttribute('src') !== d) { posterImg.src = d; if (posterSrc) posterSrc.srcset = p; }
   }
 

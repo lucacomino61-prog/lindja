@@ -2,6 +2,7 @@
 import * as THREE from 'three';
 import * as V from './cars.js';
 import * as P from './props.js';
+import * as K from './kit.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import fontUrl from '@fontsource-variable/big-shoulders-display/files/big-shoulders-display-latin-ext-wght-normal.woff2?url';
 import fontUrl2 from '@fontsource-variable/big-shoulders-display/files/big-shoulders-display-latin-wght-normal.woff2?url';
@@ -14,6 +15,8 @@ async function subject(name) {
   if (kind === 'cartop') { const c = V.car(a, b); return { obj: c, dir: [0.02, 1, 0.05], fit: 0.8 }; }
   if (kind === 'car') { const c = V.car(a, b); c.rotation.y = Math.PI - 1.5; return { obj: c, dir: [0.62, 0.36, 0.78], fit: 0.66 }; } // front three-quarter
   if (kind === 'ship') { const s = V.containerShip({ len: 34 }); s.rotation.y = -Math.PI / 2 - 0.35; return { obj: s, dir: [0.6, 0.45, 0.8], fit: 0.9 }; }
+  if (kind === 'tree') { const t = K.scatterTrees([{ x: 0, y: 0, z: 0, kind: a, s: 1 }], { near: () => b !== 'far' }); return { obj: t, dir: [0.62, 0.3, 0.78], fit: 0.8 }; } // debug
+  if (kind === 'roro') { const r = V.carCarrier({ ramp: 1, deployed: a !== 'shut' }); r.rotation.y = +(b || -2.3); return { obj: r, dir: [0.6, 0.32, 0.8], fit: 0.78 }; } // debug
   if (kind === 'open') { const o = P.openContainer(); o.rotation.y = -0.6; return { obj: o, dir: [0.62, 0.42, 0.78], fit: 0.8 }; }
   if (kind === 'transporter') { const t = V.carTransporter(5); t.rotation.y = Math.PI / 2; return { obj: t, dir: [0.45, 0.42, 0.85], fit: 0.95 }; }
 }
