@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { rng } from './noise.js';
 import * as models from './models.js';
 import { fit } from './models.js';
+import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const C = {
   orange: '#FF4F12', ink: '#101418', white: '#F3F2EE', paper: '#EEF0EC', grey: '#B8BBB7', mid: '#7D8289', dark: '#43484F',
@@ -136,38 +137,112 @@ export function containerBox(color = C.orange, len = 1.7) {
 }
 
 // ---------- port ----------
+// Ship-to-shore container crane at port proportions (0.2 units per metre): portal on four legs with bogies, trucks
+// pass along the quay between them; lattice boom over the water, hinged at the seaside legs so an idle crane can raise
+// it; A-frame with backstays and forestays; machinery house on the backreach; trolley with the operator cab, ropes,
+// a 40 ft spreader and the container it carries. Boom points -x (over the water).
+const STS = { legX: 1.4, legZ: 1.6, portalY: 5.5, chordLo: 5.9, chordHi: 6.55, girderZ: 0.42, hingeX: -1.4, back: 3.2, reach: 7.8, apex: [0.2, 10.0] };
+function beam(a, b, t = 0.09) {
+  const d = new THREE.Vector3().subVectors(b, a), len = d.length();
+  const g = new THREE.BoxGeometry(t, len, t);
+  g.applyQuaternion(new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()));
+  g.translate((a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2);
+  return g;
+}
+const v3 = (x, y, z) => new THREE.Vector3(x, y, z);
+// one lattice girder from x0 to x1 (bottom chord at y0, top at y1), zig-zag diagonals; both girders and top ties
+function girders(x0, x1, y0, y1, out, taper = 0) {
+  const zs = [-STS.girderZ, STS.girderZ], n = Math.max(2, Math.round(Math.abs(x1 - x0) / 0.65));
+  const top = (x) => y1 - taper * Math.max(0, (Math.abs(x - x0) - Math.abs(x1 - x0) + 1.3) / 1.3) * (y1 - y0) * 0.55;
+  for (const z of zs) {
+    out.push(beam(v3(x0, y0, z), v3(x1, y0, z), 0.1));
+    for (let i = 0; i < n; i++) {
+      const a = x0 + ((x1 - x0) * i) / n, b = x0 + ((x1 - x0) * (i + 1)) / n;
+      out.push(beam(v3(a, top(a), z), v3(b, top(b), z), 0.09));
+      out.push(beam(i % 2 ? v3(a, y0, z) : v3(a, top(a), z), i % 2 ? v3(b, top(b), z) : v3(b, y0, z), 0.05));
+    }
+  }
+  for (let i = 0; i <= n; i += 2) { const x = x0 + ((x1 - x0) * i) / n; out.push(beam(v3(x, top(x), -STS.girderZ), v3(x, top(x), STS.girderZ), 0.06)); out.push(beam(v3(x, y0, -STS.girderZ), v3(x, y0, STS.girderZ), 0.06)); }
+}
 export function stsCrane() {
-  // ship-to-shore gantry crane; boom points -x (over the water)
   const g = new THREE.Group();
-  const leg = box(0.22, 5.2, 0.22), beam = box(0.24, 0.24, 3.4);
-  const red = mat(C.orange);
-  for (const x of [-1.4, 1.4]) for (const z of [-1.5, 1.5]) g.add(mesh(leg, red, x, 2.6, z));
-  for (const x of [-1.4, 1.4]) g.add(mesh(beam, red, x, 5.25, 0));
-  g.add(mesh(box(3.0, 0.24, 0.24), red, 0, 3.6, -1.5));
-  g.add(mesh(box(3.0, 0.24, 0.24), red, 0, 3.6, 1.5));
-  // boom
-  g.add(mesh(box(10.5, 0.3, 0.5), red, -3.2, 5.5, 0));
-  g.add(mesh(box(0.25, 2.2, 0.25), red, 1.1, 6.6, 0));
-  const tie = mesh(box(6.2, 0.06, 0.06), mat(C.dark), -2.0, 6.6, 0); tie.rotation.z = 0.33; g.add(tie);
-  g.add(mesh(box(0.9, 0.8, 0.9), mat(C.white), 0.8, 4.9, 0)); // machinery house
-  const trolley = new THREE.Group();
-  trolley.add(mesh(box(0.7, 0.3, 0.6), mat(C.dark), 0, 5.2, 0));
-  const rope = mesh(box(0.03, 1, 0.03), mat(C.dark), 0, 4.6, 0); trolley.add(rope);
-  const spreader = new THREE.Group();
-  spreader.add(mesh(box(0.5, 0.1, 1.7), mat(C.yellow), 0, 0, 0));
-  const carried = containerBox(C.orange); carried.position.y = -0.48; spreader.add(carried);
-  trolley.add(spreader);
-  g.add(trolley);
-  g.userData = { trolley, spreader, rope, carried };
+  const paint = new THREE.MeshStandardMaterial({ color: C.orange, roughness: 0.5, metalness: 0.25 });
+  const steel = new THREE.MeshStandardMaterial({ color: '#2E3238', roughness: 0.55, metalness: 0.6 });
+  const white = new THREE.MeshStandardMaterial({ color: '#EEEDE8', roughness: 0.6 });
+  const { legX: X, legZ: Z, portalY: P, chordLo: lo, chordHi: hi, girderZ: gz } = STS;
+  const fixed = [], dark = [], house = [];
+  for (const x of [-X, X]) {
+    for (const z of [-Z, Z]) { fixed.push(beam(v3(x, 0.2, z), v3(x, P, z), 0.2)); dark.push(new THREE.BoxGeometry(0.36, 0.22, 0.95).translate(x, 0.11, z)); fixed.push(beam(v3(x, P, z), v3(x, lo, z > 0 ? gz : -gz), 0.14)); }
+    fixed.push(beam(v3(x, P, -Z - 0.1), v3(x, P, Z + 0.1), 0.24), beam(v3(x, 3.6, -Z), v3(x, 3.6, Z), 0.16));
+    fixed.push(beam(v3(x, 3.6, -Z), v3(x, P, Z), 0.09), beam(v3(x, 3.6, Z), v3(x, P, -Z), 0.09));
+  }
+  for (const z of [-Z, Z]) fixed.push(beam(v3(-X - 0.1, P, z), v3(X + 0.1, P, z), 0.24));
+  girders(STS.hingeX, STS.back, lo, hi, fixed); // backreach, fixed
+  const [ax, ay] = STS.apex;
+  for (const z of [-gz, gz]) { fixed.push(beam(v3(-X, hi, z), v3(ax, ay, z), 0.17), beam(v3(X, hi, z), v3(ax, ay, z), 0.17)); dark.push(beam(v3(ax, ay, z), v3(STS.back, hi, z), 0.035)); }
+  fixed.push(beam(v3(ax, ay, -gz - 0.08), v3(ax, ay, gz + 0.08), 0.18), beam(v3(-0.6, 8.3, -gz), v3(-0.6, 8.3, gz), 0.1));
+  house.push(new THREE.BoxGeometry(1.5, 0.8, 1.05).translate(2.3, hi + 0.4, 0));
+  const add = (list, material, parent = g) => { const m = new THREE.Mesh(mergeGeometries(list), material); m.castShadow = true; m.receiveShadow = true; parent.add(m); return m; };
+  add(fixed, paint); add(dark, steel); add(house, white);
+  // outer boom on its hinge at the seaside legs
+  const pivot = new THREE.Group(); pivot.position.set(STS.hingeX, lo, 0); g.add(pivot);
+  const boom = []; girders(0, -STS.reach, 0, hi - lo, boom, 1);
+  add(boom, paint, pivot);
+  // forestays from the apex to two points on the boom, re-laid when the boom moves
+  const stayGeo = new THREE.CylinderGeometry(0.018, 0.018, 1, 5);
+  const stays = [];
+  for (const bx of [-3.6, -7.0]) for (const z of [-gz, gz]) { const s = new THREE.Mesh(stayGeo, steel); s.castShadow = true; g.add(s); stays.push({ s, bx, z }); }
+  // trolley, cab, ropes, spreader, container
+  const trolley = new THREE.Group(); g.add(trolley);
+  trolley.add(mesh(new THREE.BoxGeometry(0.82, 0.2, 1.0), steel, 0, lo + 0.1, 0));
+  trolley.add(mesh(new THREE.BoxGeometry(0.38, 0.34, 0.36), white, 0.26, lo - 0.3, 0.6));
+  trolley.add(mesh(new THREE.BoxGeometry(0.02, 0.2, 0.3), new THREE.MeshStandardMaterial({ color: '#1C2730', roughness: 0.1, metalness: 0.2 }), 0.07, lo - 0.3, 0.6));
+  const ropeGeo = new THREE.BoxGeometry(0.025, 1, 0.025); ropeGeo.translate(0, -0.5, 0);
+  const ropes = [-0.9, 0.9].map((z) => { const r = mesh(ropeGeo, steel, 0, lo, z); trolley.add(r); return r; });
+  const spreader = new THREE.Group(); trolley.add(spreader);
+  const yellow = new THREE.MeshStandardMaterial({ color: '#E3B526', roughness: 0.5, metalness: 0.2 });
+  spreader.add(mesh(new THREE.BoxGeometry(0.42, 0.08, 2.5), yellow, 0, 0, 0), mesh(new THREE.BoxGeometry(0.5, 0.1, 0.12), yellow, 0, 0, 1.2), mesh(new THREE.BoxGeometry(0.5, 0.1, 0.12), yellow, 0, 0, -1.2));
+  const carried = containerBox(C.orange, 2.44); carried.position.y = -0.48; spreader.add(carried); // its top under the spreader
+  g.userData = { trolley, spreader, ropes, carried, pivot, stays };
+  setBoom(g, 0); setCrane(g, 0.4, 3);
   return shadowed(g);
 }
-export function setCrane(c, x, drop) {
-  // x along boom (-9..1), drop = how far the spreader hangs below the trolley
-  const { trolley, spreader, rope } = c.userData;
+// trolley at x along the boom, spreader (its underside) at height y above the quay
+export function setCrane(c, x, y) {
+  const { trolley, spreader, ropes } = c.userData;
   trolley.position.x = x;
-  spreader.position.y = 5.05 - drop;
-  rope.scale.y = Math.max(0.05, drop);
-  rope.position.y = 5.1 - drop / 2;
+  spreader.position.y = y + 0.04;
+  for (const r of ropes) r.scale.y = Math.max(0.05, STS.chordLo - y - 0.04);
+}
+// boom angle: 0 working, negative raised (an idle crane stands with its boom up, about -1.3)
+export function setBoom(c, angle) {
+  const { pivot, stays } = c.userData;
+  pivot.rotation.z = angle;
+  const [ax, ay] = STS.apex, cos = Math.cos(angle), sin = Math.sin(angle), h = STS.chordHi - STS.chordLo;
+  for (const { s, bx, z } of stays) {
+    const a = v3(ax, ay, z), b = v3(STS.hingeX + bx * cos - h * sin, STS.chordLo + bx * sin + h * cos, z);
+    const d = b.clone().sub(a);
+    s.position.copy(a).addScaledVector(d, 0.5); s.scale.set(1, d.length(), 1);
+    s.quaternion.setFromUnitVectors(v3(0, 1, 0), d.normalize());
+  }
+}
+// One loop of crane work. load: a container lifted off a waiting truck at the portal (x = land) and lowered into the
+// ship's hold (x = ship); unload: the same run backwards, out of the hold onto the truck. Container handover happens
+// at tau = 0 with the spreader down on the truck, so the trucks' stop window has to span the loop seam.
+const lerp = THREE.MathUtils.lerp, sm = (a, b, t) => THREE.MathUtils.smoothstep(t, a, b);
+export function craneWork(c, tau, { mode = 'load', land = 0, ship = -5.2, truckY = 0.8, holdY = 0.9, highY = 4.9 } = {}) {
+  const t = mode === 'load' ? tau : 6 - tau;
+  // load timeline: hoist 0–1.2, travel 1.2–2.6, lower into the hold 2.6–3.6, release, hoist 3.8–4.6, back 4.6–5.6, down 5.6–6
+  let x, y;
+  if (t < 1.2) { x = land; y = lerp(truckY, highY, sm(0, 1.2, t)); }
+  else if (t < 2.6) { x = lerp(land, ship, sm(1.2, 2.6, t)); y = highY; }
+  else if (t < 3.6) { x = ship; y = lerp(highY, holdY, sm(2.6, 3.6, t)); }
+  else if (t < 3.8) { x = ship; y = holdY; }
+  else if (t < 4.6) { x = ship; y = lerp(holdY, highY, sm(3.8, 4.6, t)); }
+  else if (t < 5.6) { x = lerp(ship, land, sm(4.6, 5.6, t)); y = highY; }
+  else { x = land; y = lerp(highY, truckY, sm(5.6, 6, t)); }
+  setCrane(c, x, y);
+  c.userData.carried.visible = t < 3.7; // in load mode it rides from the truck into the hold; unload mirrors it
 }
 
 export function ship({ len = 26, seed = 9 } = {}) {

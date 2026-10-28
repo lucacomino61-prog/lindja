@@ -12,7 +12,7 @@ async function subject(name) {
   const [kind, a, b] = name.split(':');
   if (kind === 'glb') { const { GLTFLoader } = await import('three/addons/loaders/GLTFLoader.js'); const { MeshoptDecoder } = await import('three/addons/libs/meshopt_decoder.module.js'); const s = (await new GLTFLoader().setMeshoptDecoder(MeshoptDecoder).loadAsync('/models/sketchfab/' + a + '.glb')).scene; s.rotation.y = +(b || 0); return { obj: s, dir: [0.62, 0.36, 0.78], fit: 0.7 }; } // debug: a raw model
   if (kind === 'cartop') { const c = V.car(a, b); return { obj: c, dir: [0.02, 1, 0.05], fit: 0.8 }; }
-  if (kind === 'car') { const c = V.car(a, b); c.rotation.y = -1.5; return { obj: c, dir: [0.62, 0.36, 0.78], fit: 0.66 }; }
+  if (kind === 'car') { const c = V.car(a, b); c.rotation.y = Math.PI - 1.5; return { obj: c, dir: [0.62, 0.36, 0.78], fit: 0.66 }; } // front three-quarter
   if (kind === 'ship') { const s = V.containerShip({ len: 34 }); s.rotation.y = -Math.PI / 2 - 0.35; return { obj: s, dir: [0.6, 0.45, 0.8], fit: 0.9 }; }
   if (kind === 'open') { const o = P.openContainer(); o.rotation.y = -0.6; return { obj: o, dir: [0.62, 0.42, 0.78], fit: 0.8 }; }
   if (kind === 'transporter') { const t = V.carTransporter(5); t.rotation.y = Math.PI / 2; return { obj: t, dir: [0.45, 0.42, 0.85], fit: 0.95 }; }

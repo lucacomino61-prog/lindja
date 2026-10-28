@@ -1,8 +1,9 @@
 // Cars and the ships and buildings that move them. Cars, the car transporter and the container ship are Sketchfab
 // models (world/models.js), the cars repainted per listing; the rest is built here.
 import * as THREE from 'three';
-import { mat, C, wordTexture, shadowed } from './kit.js';
+import { mat, C, wordTexture, shadowed, containerBox } from './kit.js';
 import { rng } from './noise.js';
+import { height } from './geo.js';
 import * as M from './models.js';
 
 export const CAR_LENGTH = 0.92; // model units; about 0.52 wide. A truck is about 2.3
@@ -83,6 +84,21 @@ export function carTransporter(seed = 1) {
   return shadowed(g);
 }
 
+// port truck for crane work: the Xcient tractor on a skeletal 40 ft chassis with the port's container
+// (userData.box, shown or hidden by the circuit); nose +z, about 3.7 long, centred
+export function terminalTruck(color = C.orange) {
+  const g = new THREE.Group();
+  for (const p of M.transporter.cab) g.add(m(p.geo, p.material, 0, 0, 1.18));
+  const steel = mat('#2B2E33', { roughness: 0.6, metalness: 0.4 }), tyre = mat('#151618', { roughness: 0.9 });
+  for (const x of [-0.24, 0.24]) g.add(m(box(0.09, 0.12, 2.7), steel, x, 0.22, -0.55));
+  for (const z of [-1.75, -0.6, 0.45]) g.add(m(box(0.56, 0.06, 0.09), steel, 0, 0.25, z));
+  const wheel = new THREE.CylinderGeometry(0.105, 0.105, 0.12, 14); wheel.rotateZ(Math.PI / 2);
+  for (const z of [-1.56, -1.3]) for (const x of [-0.25, 0.25]) g.add(m(wheel, tyre, x, 0.105, z));
+  const cont = containerBox(color, 2.44); cont.position.set(0, 0.28, -0.6); g.add(cont);
+  g.userData.box = cont;
+  return shadowed(g);
+}
+
 // glass showroom: plinth, double-height glazing with mullions, folded roof cantilevered over the entrance,
 // lit sign, podiums inside, spotlights; userData.podium (the one that turns)
 export function showroom({ w = 16, d = 8, h = 3.6 } = {}) {
@@ -148,6 +164,36 @@ export function apartmentBlocks(points) {
   }
   return g;
 }
+// Tirana's painted apartment blocks behind the showroom: bold facades (stripes, blocks of colour) over a window grid
+const FACADE = [['#E9B949', '#C2463A'], ['#D8573C', '#F1E3C6'], ['#5E8C6A', '#EFD46B'], ['#3F6FA8', '#F0EDE6'], ['#C9668A', '#F2D9A0'], ['#E58A3A', '#3D5A7A'], ['#8FB4C9', '#E4573D']];
+function facadeTexture(i, floors) {
+  const [a, b] = FACADE[i % FACADE.length], cv = document.createElement('canvas'); cv.width = 256; cv.height = 512;
+  const g = cv.getContext('2d');
+  g.fillStyle = a; g.fillRect(0, 0, 256, 512);
+  g.fillStyle = b;
+  const kind = i % 3;
+  if (kind === 0) for (let x = 0; x < 256; x += 64) g.fillRect(x, 0, 26, 512); // vertical bands
+  else if (kind === 1) for (let y = 0; y < 512; y += 96) g.fillRect(0, y, 256, 34); // horizontal bands
+  else for (let y = 0; y < 512; y += 128) for (let x = (y / 128) % 2 ? 0 : 128; x < 256; x += 256) g.fillRect(x, y, 128, 128); // blocks
+  g.fillStyle = 'rgba(28, 34, 40, 0.82)';
+  const fh = 512 / floors;
+  for (let f = 0; f < floors; f++) for (let k = 0; k < 4; k++) g.fillRect(18 + k * 60, f * fh + fh * 0.28, 34, fh * 0.42);
+  const t = new THREE.CanvasTexture(cv); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 4;
+  return t;
+}
+export function tiranaBlocks(seed = 41) {
+  const g = new THREE.Group(), r = rng(seed);
+  const roof = mat('#B9B4AA', { roughness: 0.9 });
+  for (let i = 0; i < 16; i++) {
+    const x = -344 - (i % 6) * 7.4 - r() * 2, z = -67 - Math.floor(i / 6) * 7.5 - r() * 2.5;
+    const floors = 7 + Math.floor(r() * 7), h = floors * 0.6, w = 3.4 + r() * 1.6, d = 1.7 + r() * 0.5;
+    const side = new THREE.MeshStandardMaterial({ map: facadeTexture(i, floors), roughness: 0.85 });
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), [side, side, roof, roof, side, side]);
+    b.position.set(x, height(x, z) + h / 2, z); b.rotation.y = 0.2 + (r() - 0.5) * 0.25;
+    b.castShadow = true; b.receiveShadow = true; g.add(b);
+  }
+  return g;
+}
 export function lighthouseIslet() {
   const g = new THREE.Group();
   const rock = m(new THREE.IcosahedronGeometry(3.2, 1), mat('#9C978D', { roughness: 0.95 }), 0, -0.6, 0); rock.scale.set(1.4, 0.55, 1.1); g.add(rock);
@@ -157,23 +203,6 @@ export function lighthouseIslet() {
   g.add(m(new THREE.CylinderGeometry(0.3, 0.3, 0.45, 10), mat('#FFF3C9', { emissive: '#FFE08A', emissiveIntensity: 0.6 }), 0, 3.9, 0));
   g.add(m(new THREE.ConeGeometry(0.42, 0.45, 10), mat('#C8352B'), 0, 4.35, 0));
   return shadowed(g);
-}
-export function foam(len = 10, w = 3) {
-  // low-poly wake: flat white shards in a widening V behind the stern; children carry a phase for pulsing
-  const g = new THREE.Group();
-  const r = rng(17);
-  const fm = mat('#F2F7F6', { roughness: 0.55 });
-  for (let i = 0; i < 70; i++) {
-    const t = r(), side = r() < 0.5 ? -1 : 1;
-    const spread = w / 2 + t * len * 0.32;
-    const x = side * spread * (0.75 + r() * 0.35), z = -t * len;
-    const s = (0.25 + r() * 0.5) * (1 - t * 0.6);
-    const sh = new THREE.Mesh(new THREE.CircleGeometry(s, 5), fm);
-    sh.rotation.x = -Math.PI / 2; sh.rotation.z = r() * 6; sh.position.set(x, 0.12, z);
-    sh.userData.ph = r() * 6.28; sh.userData.base = s; sh.receiveShadow = true;
-    g.add(sh);
-  }
-  return g;
 }
 export function gull() {
   const g = new THREE.Group();
@@ -203,7 +232,7 @@ export function containerShip({ len = 34, draft = SHIP_DRAFT } = {}) {
   if (SHIP_FLIP) inner.rotation.y += Math.PI;
   inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
   const g = new THREE.Group(); g.add(inner);
-  g.userData = { len, w: s.x * k, h: s.y * k };
+  g.userData = { isShip: true, len, w: s.x * k, h: s.y * k };
   return g;
 }
 const SHIP_FLIP = true, SHIP_DRAFT = 0.2; // the model is built stern to +x

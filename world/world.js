@@ -9,7 +9,7 @@ import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { pbr } from './pbr.js';
 import { STATIONS, height, MAP, rectDist } from './geo.js';
 import { rng } from './noise.js';
-import { buildTerrain, buildSea, buildRoad, roadK, roadA } from './terrain.js';
+import { buildTerrain, buildSea, setShips, buildRoad, roadK, roadA } from './terrain.js';
 import { buildStations } from './stations.js';
 import { apartmentBlocks, loadModels } from './cars.js';
 import * as K from './kit.js';
@@ -24,15 +24,16 @@ function posesFor(variant, stations) {
   const base = [
     { t: [325, 3.2, -27], az: 40, el: 40, dist: 46, fov: 24 }, // Incheon yard
     { t: [225, 2.6, 42], az: 56, el: 33, dist: 46, fov: 24 }, // Incheon port, from the land side
-    { t: [-2, 2.5, 2], az: 22, el: 24, dist: 64, fov: 24 }, // at sea
+    { t: [-2, 3.2, 2], az: 22, el: 4.5, dist: 64, fov: 24, shift: 0.04, haze: 9 }, // at sea, from a boat: horizon and sky in frame
     { t: [-234, 2.4, 8], az: -50, el: 34, dist: 46, fov: 24 }, // Durrës port, from the land side
-    { t: [-338, 3.4, -35], az: 32, el: 34, dist: 42, fov: 24 }, // Tirana showroom, Dajti behind
+    { t: [-338, 3.4, -35], az: 32, el: 13, dist: 42, fov: 24 }, // Tirana showroom, the painted blocks and the sky behind
   ];
   return base.map((p) => clearView({
     ...p,
     dist: p.dist * (phone ? 1.5 : 1.12),
     fov: p.fov + (phone ? 8 : 0),
-    shift: phone ? 0.18 : 0.15,
+    shift: p.shift ?? (phone ? 0.18 : 0.15),
+    haze: p.haze ?? 4.2, // fog reaches full strength at haze x the camera distance
   }));
 }
 // Swing the camera round until no ridge stands between it and its subject.
@@ -51,7 +52,7 @@ function clearView(p) {
   }
   return p;
 }
-const overview = (variant) => ({ t: [300, 0, -22], az: 52, el: 46, dist: variant === 'phone' ? 300 : 230, fov: 26, shift: 0 });
+const overview = (variant) => ({ t: [300, 0, -22], az: 52, el: 46, dist: variant === 'phone' ? 300 : 230, fov: 26, shift: 0, haze: 4.2 });
 
 function camFromPose(p) {
   const el = p.el * D2R, az = p.az * D2R;
@@ -71,7 +72,32 @@ function interpPose(A, B, x, intro) {
     dist: (A.dist + (B.dist - A.dist) * k) * (intro ? 1 : 1 + Math.min(1.6, span / 70) * hump),
     fov: A.fov + (B.fov - A.fov) * k,
     shift: A.shift + (B.shift - A.shift) * k,
+    haze: A.haze + (B.haze - A.haze) * k,
   };
+}
+
+// The HDR sky in place: clip the sun disc to the brightest sky around it, and read where the sun stood
+// (azimuth as atan2(z, x) in the texture's frame) and the mean colour 1–5° above the horizon (linear).
+function prepareSky(hdr) {
+  const { data, width: W, height: H } = hdr.image;
+  const half = data instanceof Uint16Array;
+  const get = half ? (i) => THREE.DataUtils.fromHalfFloat(data[i]) : (i) => data[i];
+  const put = half ? (i, v) => { data[i] = THREE.DataUtils.toHalfFloat(v); } : (i, v) => { data[i] = v; };
+  const lum = (p) => 0.2126 * get(p * 4) + 0.7152 * get(p * 4 + 1) + 0.0722 * get(p * 4 + 2);
+  let best = -1, bi = 0;
+  for (let p = 0; p < W * H; p++) { const l = lum(p); if (l > best) { best = l; bi = p; } }
+  const CAP = 6;
+  for (let p = 0; p < W * H; p++) { const l = lum(p); if (l > CAP) for (let c = 0; c < 3; c++) put(p * 4 + c, (get(p * 4 + c) * CAP) / l); }
+  hdr.needsUpdate = true;
+  // rows run from the zenith (row 0, flipped on upload) to the nadir
+  const u = ((bi % W) + 0.5) / W;
+  const horizon = new THREE.Color(0, 0, 0);
+  let n = 0;
+  for (let py = Math.floor(H * (0.5 - 5 / 180)); py <= Math.floor(H * (0.5 - 1 / 180)); py++) for (let px = 0; px < W; px += 4) {
+    const p = py * W + px; horizon.r += get(p * 4); horizon.g += get(p * 4 + 1); horizon.b += get(p * 4 + 2); n++;
+  }
+  horizon.multiplyScalar(1 / n);
+  return { sunAz: (u - 0.5) * Math.PI * 2, horizon, horizonLum: 0.2126 * horizon.r + 0.7152 * horizon.g + 0.0722 * horizon.b };
 }
 
 export async function createWorld({ width, height: H, variant = 'desktop', canvas, quality = 'film' }) {
@@ -85,19 +111,25 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const scene = new THREE.Scene();
-  const haze = new THREE.Color('#DCE5E4');
-  scene.background = haze.clone();
-  scene.fog = new THREE.Fog(haze, 200, 600);
+  const sunDir = new THREE.Vector3(-0.52, 0.66, 0.54).normalize();
 
   const hemi = new THREE.HemisphereLight('#D3E6F0', '#C8B48E', 0.45); scene.add(hemi);
-  // real sky light and reflections: Poly Haven "kloofendal_48d_partly_cloudy_puresky" (CC0)
+  // the real sky, as backdrop, light and reflections: Poly Haven "kloofendal_48d_partly_cloudy_puresky" (CC0).
+  // Its sun disc is clipped (the directional light is the sun), the sky is turned so its sun stands where ours
+  // does, and the haze takes the colour of its horizon, so far water and land melt into it
   const hdr = await new RGBELoader().loadAsync('/world/assets/polyhaven/sky_2k.hdr');
   hdr.mapping = THREE.EquirectangularReflectionMapping;
+  const sky = prepareSky(hdr);
+  const turn = sky.sunAz - Math.atan2(sunDir.z, sunDir.x);
+  scene.background = hdr;
+  scene.backgroundRotation.set(0, turn, 0); scene.environmentRotation.set(0, turn, 0);
+  scene.backgroundIntensity = 0.8 / sky.horizonLum; // the horizon about as bright as the old haze
+  const haze = sky.horizon.clone().multiplyScalar(scene.backgroundIntensity * 0.8); // a touch under the sky, so the horizon reads as a line, not a glare
+  scene.fog = new THREE.Fog(haze, 200, 600);
   const pmrem = new THREE.PMREMGenerator(renderer);
-  scene.environment = pmrem.fromEquirectangular(hdr).texture; hdr.dispose();
-  scene.environmentIntensity = 0.6;
+  scene.environment = pmrem.fromEquirectangular(hdr).texture;
+  scene.environmentIntensity = 0.75;
   const sun = new THREE.DirectionalLight('#FFE6C8', 3.0);
-  const sunDir = new THREE.Vector3(-0.52, 0.66, 0.54).normalize();
   sun.castShadow = true;
   sun.shadow.mapSize.set(4096, 4096);
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3;
@@ -106,15 +138,16 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   await loadModels();
   const terrain = buildTerrain(); scene.add(terrain);
   const sea = buildSea(); scene.add(sea);
-  const asphalt = pbr('asphalt_02', 1);
-  scene.add(buildRoad(roadK, { width: 1.9, material: asphalt }));
-  scene.add(buildRoad(roadA, { width: 1.9, material: asphalt }));
+  const asphaltImg = await new THREE.ImageLoader().loadAsync('/world/assets/polyhaven/asphalt_02_diff_1k.jpg');
+  const relief = pbr('asphalt_02', 1);
+  scene.add(buildRoad(roadK, { asphaltImg, relief }), buildRoad(roadA, { asphaltImg, relief }));
   // yard surfaces: concrete in the ports and at the showroom, asphalt in the Incheon lot
   for (const st of STATIONS) {
     if (!st.rect) continue;
     const [x0, x1, z0, z1] = st.rect, w = x1 - x0, d = z1 - z0;
-    const m = pbr(st.ground === 'asphalt' ? 'asphalt_02' : 'concrete_floor_02', 1, [w / 2.2, d / 2.2]); m.color.set(st.ground === 'asphalt' ? '#9A9EA3' : '#969894');
-    if (st.ground !== 'asphalt') m.map = null; // Poly Haven's concrete colour map is beige: keep its relief and roughness on a neutral grey
+    const asph = st.ground === 'asphalt';
+    const tile = asph ? 2.2 : 7; // concrete slabs read better large
+    const m = pbr(asph ? 'asphalt_02' : 'concrete_floor_02', 1, [w / tile, d / tile], { grey: !asph }); m.color.set(asph ? '#9A9EA3' : '#E6E8E4');
     const yard = new THREE.Mesh(new THREE.PlaneGeometry(w, d), m);
     yard.rotation.x = -Math.PI / 2; yard.position.set((x0 + x1) / 2, st.pad + 0.012, (z0 + z1) / 2); yard.receiveShadow = true;
     scene.add(yard);
@@ -165,6 +198,16 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
 
   const stations = buildStations();
   stations.forEach((s) => scene.add(s.group));
+  // the sea draws foam round every container ship: waterline, bow wave, and a wake for those under way
+  scene.updateMatrixWorld(true);
+  const ships = [];
+  scene.traverse((o) => {
+    if (!o.userData.isShip) return;
+    const p = o.getWorldPosition(new THREE.Vector3()), d = new THREE.Vector3(0, 0, 1).transformDirection(o.matrixWorld);
+    const h = Math.hypot(d.x, d.z);
+    ships.push({ x: p.x, z: p.z, dir: [d.x / h, d.z / h], len: o.userData.len, beam: o.userData.w, underway: !!o.userData.underway });
+  });
+  setShips(sea, ships);
   const poses = posesFor(variant, stations);
   const ov = overview(variant);
   const L = layout(stations.length);
@@ -192,8 +235,8 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
     camera.setViewOffset(width, H, 0, H * p.shift, width, H); // lens shift: the subject sits above centre, clear of the copy band
     camera.updateProjectionMatrix();
     const dist = pos.distanceTo(target);
-    scene.fog.near = dist * 1.5; scene.fog.far = dist * 4.2;
-    camera.near = Math.max(0.5, dist * 0.08); camera.far = dist * 6; camera.updateProjectionMatrix();
+    scene.fog.near = dist * 1.5; scene.fog.far = dist * p.haze;
+    camera.near = Math.max(0.5, dist * 0.08); camera.far = p.haze > 6 ? 6000 : dist * 6; // a low sea shot sees the water to the horizon camera.updateProjectionMatrix();
     bokeh.uniforms.focus.value = dist;
     bokeh.uniforms.aperture.value = 0.00018 * Math.min(1, 62 / dist);
     bokeh.uniforms.nearClip.value = camera.near; bokeh.uniforms.farClip.value = camera.far;
