@@ -34,18 +34,24 @@ export class Film {
     if (!this.A.src) return; // not started yet: load() will pick it up
     while (this.busy) await new Promise((r) => setTimeout(r, 60));
     this.busy = true;
+    this.changing = true; // tick closes the loop by seeking meanwhile and leaves the standby alone
     const next = this.B;
     next.pause(); next.preload = 'auto'; next.src = src;
+    this.cue = null;
     await new Promise((r) => (next.readyState >= 1 ? r() : next.addEventListener('loadedmetadata', r, { once: true })));
-    const lead = 0.25;
-    await new Promise((r) => { next.addEventListener('seeked', r, { once: true }); next.currentTime = this.A.currentTime + lead; });
+    // land a hair ahead of the playing picture, wrapped back into the loop if that runs past its end
+    let at = this.A.currentTime + 0.25;
+    const L = this.plan?.kind === 'loop' && this.seg[`idle${this.plan.k}`];
+    if (L) { const s = this.t(L.start), e = (L.start + L.loopLen - 0.5) / this.fps; if (at >= e) at = s + (at - e); }
+    await new Promise((r) => { next.addEventListener('seeked', r, { once: true }); next.currentTime = at; });
     const wait = (next.currentTime - this.A.currentTime) * 1000;
     if (wait > 0 && wait < 1000) await new Promise((r) => setTimeout(r, wait));
     this.swap(0.5, gsap);
-    this.cue = null;
     const old = this.B;
     await new Promise((r) => setTimeout(r, 600)); // let the dissolve finish before the old one changes file
-    if (old === this.B) old.src = src; // the old one: standby on the new file
+    if (old === this.B) old.src = src; // the old one: standby on the new file, parked again by tick
+    this.cue = null;
+    this.changing = false;
     this.busy = false;
   }
 
@@ -67,6 +73,7 @@ export class Film {
     next.play().catch(() => {});
     this.active = 1 - this.active;
     this.cue = null;
+    next.style.zIndex = '1'; prev.style.zIndex = '0'; // the incoming one on top, whichever element it is, so it dissolves in
     if (fade && gsap) {
       gsap.killTweensOf(this.v);
       next.classList.add('is-on');
@@ -107,6 +114,7 @@ export class Film {
     if (this.plan.kind === 'loop') {
       const L = this.seg[`idle${this.plan.k}`];
       const end = L.start + L.loopLen;
+      if (this.changing) { if (f >= end - 0.5) this.A.currentTime = this.t(L.start); return; }
       if (this.cue !== L.start && !this.B.seeking) this.park(L.start);
       if (f >= end - 0.5) {
         if (this.cue === L.start && this.B.readyState >= 2 && !this.B.seeking) this.swap();

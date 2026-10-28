@@ -315,7 +315,8 @@ export function renderPage(t, all, cars) {
   <a class="site-footer__top" href="#lindja-film">${esc(ft.top)} ${icon.arrow}</a>
 </footer>`;
 
-  const alt = all.map((l) => `<link rel="alternate" hreflang="${l.lang}" href="${l.path}">`).join('\n') + `\n<link rel="alternate" hreflang="x-default" href="/">`;
+  // vite-ignore: the build rewrites every <link href> as an asset, and these point at page folders
+  const alt = all.map((l) => `<link rel="alternate" hreflang="${l.lang}" href="${l.path}" vite-ignore>`).join('\n') + `\n<link rel="alternate" hreflang="x-default" href="/" vite-ignore>`;
   return `<!doctype html>
 <html lang="${t.lang}" data-motion="on">
 <head>

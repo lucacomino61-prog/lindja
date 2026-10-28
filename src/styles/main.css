@@ -124,12 +124,12 @@ html { scrollbar-color: var(--ink-50) var(--stone-2); }
 
 /* ---------- hero: the world film ---------- */
 .hero { position: relative; height: 100svh; min-height: 560px; overflow: clip; background: #DCE5E4; color: var(--ink); }
-.hero__stage { position: absolute; inset: 0; }
+.hero__stage { position: absolute; inset: 0; isolation: isolate; }
 .hero__poster, .hero__poster img, .hero__video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .hero__video { opacity: 0; }
 .hero__video.is-on { opacity: 1; }
 .hero__poster { transition: opacity 400ms var(--ease-out); }
-.hero__fade { position: absolute; inset: auto 0 0; height: 48%; background: linear-gradient(to top, var(--limestone) 0%, color-mix(in oklch, var(--limestone) 86%, transparent) 30%, transparent 100%); pointer-events: none; }
+.hero__fade { position: absolute; z-index: 2; inset: auto 0 0; height: 48%; background: linear-gradient(to top, var(--limestone) 0%, color-mix(in oklch, var(--limestone) 86%, transparent) 30%, transparent 100%); pointer-events: none; }
 .hero__spots { position: absolute; inset: 0; pointer-events: none; }
 .spot { position: absolute; left: 0; top: 0; transform: translate3d(var(--x, -999px), var(--y, -999px), 0); visibility: hidden; opacity: 0; transition: opacity 240ms var(--ease-out), visibility 0s linear 240ms; }
 .spot.is-on { visibility: visible; opacity: 1; transition: opacity 240ms var(--ease-out); }
