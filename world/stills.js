@@ -9,14 +9,14 @@ const toB64 = (blob) => new Promise((res) => { const fr = new FileReader(); fr.o
 function subject(name) {
   const [kind, a, b] = name.split(':');
   if (kind === 'car') { const c = V.car(a, b); c.rotation.y = -1.5; return { obj: c, dir: [0.62, 0.36, 0.78], fit: 0.66 }; }
-  if (kind === 'ship') { const s = V.carCarrier({ name: 'LINDJA' }); s.userData.rampPivot.visible = false; s.rotation.y = Math.PI / 2 + 0.25; s.position.y = 1.2; return { obj: s, dir: [0.6, 0.5, 0.8], fit: 0.95 }; }
+  if (kind === 'ship') { const s = V.containerShip({ len: 34 }); s.rotation.y = -Math.PI / 2 - 0.35; return { obj: s, dir: [0.6, 0.45, 0.8], fit: 0.9 }; }
   if (kind === 'transporter') { const t = V.carTransporter(5); t.rotation.y = Math.PI / 2; return { obj: t, dir: [0.45, 0.42, 0.85], fit: 0.95 }; }
 }
 
 async function boot() {
   for (const [u, range] of [[fontUrl2, 'U+0000-00FF'], [fontUrl, 'U+0100-024F']]) document.fonts.add(await new FontFace('Big Shoulders Display', `url(${u})`, { weight: '100 900', unicodeRange: range }).load());
   await document.fonts.load('800 100px "Big Shoulders Display"', 'LINDJA lindja');
-  await V.loadKit();
+  await V.loadKit(); await V.loadShip();
   const canvas = document.getElementById('c');
 
   async function cutout(name, w = 1280, h = 840) {

@@ -217,7 +217,7 @@ export function carCarrier({ len = 34, name = 'LINDJA' } = {}) {
   return shadowed(g);
 }
 export function setRamp(ship, k) { ship.userData.rampPivot.rotation.set(-0.09 * k - 1.35 * (1 - k), 0.6 * k, 0); }
-export function spinRadar(ship, phase) { ship.userData.radar.rotation.y = phase * Math.PI * 2; }
+export function spinRadar(ship, phase) { if (ship.userData.radar) ship.userData.radar.rotation.y = phase * Math.PI * 2; }
 
 // car transporter: Kenney's flatbed truck carrying a two-deck frame with four cars
 export function carTransporter(seed = 1) {
@@ -341,3 +341,27 @@ export function priceBoard() {
   g.add(m(box(0.32, 0.05, 0.022), mat(C.orange), 0, 0.46, 0));
   return g;
 }
+
+// The vessel: "Container Ship" by Alex Safayan (Poly Pizza, CC-BY 3.0), credited in the site footer.
+let shipScene = null;
+export async function loadShip(url = '/models/polypizza/container-ship.glb') {
+  if (shipScene) return shipScene;
+  shipScene = (await new GLTFLoader().loadAsync(url)).scene;
+  return shipScene;
+}
+// bow to +z, waterline at y = 0, length `len` model units
+export function containerShip({ len = 34, draft = 0.14 } = {}) {
+  const inner = shipScene.clone(true);
+  inner.updateMatrixWorld(true);
+  let box = new THREE.Box3().setFromObject(inner), s = box.getSize(new THREE.Vector3());
+  if (s.x > s.z) { inner.rotation.y = Math.PI / 2; inner.updateMatrixWorld(true); box = new THREE.Box3().setFromObject(inner); s = box.getSize(new THREE.Vector3()); }
+  const k = len / s.z, c = box.getCenter(new THREE.Vector3());
+  inner.scale.multiplyScalar(k);
+  inner.position.set(-c.x * k, -box.min.y * k - s.y * k * draft, -c.z * k);
+  if (SHIP_FLIP) inner.rotation.y += Math.PI;
+  inner.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+  const g = new THREE.Group(); g.add(inner);
+  g.userData = { len, w: s.x * k, h: s.y * k };
+  return g;
+}
+const SHIP_FLIP = false;

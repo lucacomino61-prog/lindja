@@ -95,7 +95,7 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3;
   scene.add(sun, sun.target);
 
-  await loadKit();
+  await loadKit(); await (await import('./cars.js')).loadShip();
   const terrain = buildTerrain(); scene.add(terrain);
   const sea = buildSea(); scene.add(sea);
   scene.add(buildRoad(roadK, { width: 1.9 }));

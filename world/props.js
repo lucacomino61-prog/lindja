@@ -157,3 +157,13 @@ export function bayLines(n, step, len) {
   for (let i = 0; i <= n; i++) g.add(m(box(0.04, 0.01, len), mat('#F4F4F0'), i * step, 0.005, 0));
   return g;
 }
+
+// a 40-foot container standing on the quay with its doors swung open (cars drive in or out at +z)
+export function openContainer(color = C.orange) {
+  const g = new THREE.Group();
+  const L = 2.3, W = 0.62, H = 0.66, t = 0.03, mt = mat(color);
+  g.add(m(box(W, t, L), mt, 0, H, 0), m(box(t, H, L), mt, -W / 2, H / 2, 0), m(box(t, H, L), mt, W / 2, H / 2, 0), m(box(W, H, t), mt, 0, H / 2, -L / 2));
+  g.add(m(box(W - 0.04, 0.02, L - 0.04), mat('#3B2E26'), 0, 0.03, 0));
+  for (const side of [-1, 1]) { const d = m(box(W / 2, H, t), mt, 0, H / 2, 0); d.position.set(side * (W / 2 + W / 4 * 0.2), H / 2, L / 2 + W / 4); d.rotation.y = side * 1.35; g.add(d); }
+  return shadowed(g);
+}

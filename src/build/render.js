@@ -309,6 +309,7 @@ export function renderPage(t, all, cars) {
       <button type="button" class="motion-toggle motion-toggle--footer" aria-pressed="false" data-label-stop="${esc(h.stop)}" data-label-start="${esc(h.start)}">${icon.pause}<span>${esc(h.stop)}</span></button></div>
   </div>
   <p class="site-footer__legal">${esc(ft.legal)}</p>
+  <p class="site-footer__legal">${esc(ft.credit)} <a href="https://poly.pizza/m/3AmDGcCu6Ll">poly.pizza</a></p>
   <a class="site-footer__top" href="#lindja-film">${esc(ft.top)} ${icon.arrow}</a>
 </footer>`;
 
