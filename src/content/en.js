@@ -2,9 +2,15 @@
 export default {
   lang: 'en', path: '/en/', label: 'English', short: 'EN',
   meta: {
-    title: 'LINDJA — Cars from South Korea, new and used (prototype)',
+    title: 'LINDJA — Cars from South Korea (prototype)',
     description: 'Prototype for an Albanian importer of Korean cars: Hyundai, Kia, Genesis and KGM, from Incheon to the Tirana showroom. The company and prices are invented.',
   },
+  share: { locale: 'en_GB', imageAlt: 'LINDJA: the car carrier LINDJA STAR in the port of Incheon, with the words “Cars from South Korea”' },
+  consent: {
+    h: 'Privacy', text: 'We can count visits and clicks, without cookies and without anything that identifies you, to improve the site. Only if you accept.',
+    accept: 'Accept counting', decline: 'No, thanks', more: 'Privacy policy', saved: { yes: 'Counting is on.', no: 'Counting is off.' },
+  },
+  search: { kinds: { car: 'Car', section: 'Section', guide: 'Guide', step: 'Step' }, open: 'Open search' },
   skip: 'Skip to content',
   unset: 'set by the company',
   proto: 'Prototype — LINDJA is an invented company',
@@ -13,7 +19,7 @@ export default {
     label: 'Main navigation',
     cars: 'Cars', import: 'Import', company: 'Showrooms', contact: 'Contact',
     drive: 'Book a test drive', order: 'Order from Korea', menu: 'Menu', close: 'Close', language: 'Language',
-    search: 'Search this site', searchPh: 'e.g. Tucson, hybrid, Durrës…', searchNone: 'Nothing found for “{q}”. Try a model or a town.',
+    search: 'Search this site', searchPh: 'e.g. Tucson, hybrid, Durrës…', searchNone: 'Nothing found for “{q}”. Try a model or a town.', searchCount: '{n} results',
     carsCols: [
       { h: 'In the showroom', links: [['All cars', '#makinat'], ['New', '#makinat?t=new'], ['Used', '#makinat?t=used'], ['Electric and hybrid', '#makinat?f=ev']] },
       { h: 'Makes', links: [['Hyundai', '#makinat?m=Hyundai'], ['Kia', '#makinat?m=Kia'], ['Genesis', '#makinat?m=Genesis'], ['KGM', '#makinat?m=KGM']] },
@@ -67,11 +73,11 @@ export default {
     h: 'How we import',
     text: 'Five steps, one person in charge. This is how every car comes from Korea to the showroom.',
     legs: [
-      { place: 'Selection', text: 'We find the car in Korea to your model and budget, check it, and send you photos and a report.' },
-      { place: 'Loading', text: 'Once you approve, the car is deregistered for export and driven aboard a car carrier or loaded into a container.' },
-      { place: 'At sea', text: 'The ship sails for Durrës; we let you know at every important step.' },
-      { place: 'Customs', text: 'In Durrës we clear customs, pay the import taxes and get the technical inspection done.' },
-      { place: 'Showroom', text: 'The car is cleaned, checked once more and handed over in Tirana.' },
+      { place: 'Selection', text: 'We find the car in Korea to your model and budget, check it, and send you photos and a report.', alt: 'The export yard in Incheon, with cars in rows and the inspection hall (3D illustration)' },
+      { place: 'Loading', text: 'Once you approve, the car is deregistered for export and driven aboard a car carrier or loaded into a container.', alt: 'The LINDJA STAR in the port of Incheon; cars drive up the side ramp (3D illustration)' },
+      { place: 'At sea', text: 'The ship sails for Durrës; we let you know at every important step.', alt: 'The car carrier at sea (3D illustration)' },
+      { place: 'Customs', text: 'In Durrës we clear customs, pay the import taxes and get the technical inspection done.', alt: 'The port of Durrës: customs, the line of cars and the inspection (3D illustration)' },
+      { place: 'Showroom', text: 'The car is cleaned, checked once more and handed over in Tirana.', alt: 'The LINDJA showroom in Tirana, with the lot and the test track (3D illustration)' },
     ],
   },
   catalogue: {
@@ -102,8 +108,8 @@ export default {
   showrooms: {
     h: 'Showrooms', addrLabel: 'Address', hoursLabel: 'Opening hours',
     items: [
-      { city: 'Tirana', role: 'Main showroom, test drives and service' },
-      { city: 'Durrës', role: 'By the port: handovers and cars just arrived' },
+      { city: 'Tirana', role: 'Main showroom, test drives and service', alt: 'The LINDJA showroom in Tirana with cars on the lot (3D illustration)' },
+      { city: 'Durrës', role: 'By the port: handovers and cars just arrived', alt: 'The port of Durrës, where the cars come off the ship (3D illustration)' },
     ],
   },
   drive: {
@@ -130,6 +136,8 @@ export default {
     contact: 'Contact', addressLabel: 'Address', phoneLabel: 'Phone', emailLabel: 'Email',
     cols: 'This site', legal: '© 2026 LINDJA. An invented company built as a prototype. Hyundai, Kia, Genesis and KGM belong to their owners; LINDJA does not represent them.',
     top: 'Back to top',
+    privacy: 'Privacy policy', terms: 'Terms of use', consent: 'Privacy settings',
+    copy: 'Copy the page link', copied: 'Link copied', copyFail: 'Copying wasn’t allowed; copy it from the address bar', updated: 'Last updated',
     credit: '3D models from Sketchfab (CC-BY 4.0): container ship by RM02; Hyundai Sonata by m3ika, i30 N by 007, Tucson by razor24, Ioniq 5 by andikapratamaw; Hyundai Xcient truck by asian3dmodel, car trailer by maregajavier; containers by Sebastian Webster and yxungsauce2; olive tree by CeDRI, cypress by ElectroNick, pine by evolveduk; tug by Mixmamo.studio; dock workers by Jungle Jim; forklift by Ricardo Sanchez. Skies and surfaces: Poly Haven (CC0). Relief: AWS Terrain Tiles (SRTM and other open sources).',
     creditLink: 'Full credits',
   },

@@ -25,14 +25,18 @@ export async function initLive(app) {
     app.ScrollTrigger.refresh();
   }
 
-  // "Adresa: vendoset nga kompania" → the real value, phones and emails as links
+  fillSite(data.site);
+}
+
+// "Adresa: vendoset nga kompania" → the real value, phones and emails as links; [data-bare] = the value alone
+export function fillSite(site) {
   for (const el of document.querySelectorAll('[data-site]')) {
     const [group, field] = el.dataset.site.split('.');
-    const v = (group === 'contact' ? data.site?.contact?.[field] : data.site?.showrooms?.[group]?.[field]) || '';
+    const v = (group === 'contact' ? site?.contact?.[field] : site?.showrooms?.[group]?.[field]) || '';
     if (!v) continue;
-    const label = esc(el.dataset.label);
-    if (field === 'phone') el.innerHTML = `${label}: <a href="tel:${esc(v.replace(/[^\d+]/g, ''))}">${esc(v)}</a>`;
-    else if (field === 'email') el.innerHTML = `${label}: <a href="mailto:${esc(v)}">${esc(v)}</a>`;
-    else el.textContent = `${el.dataset.label}: ${v}`;
+    const label = el.hasAttribute('data-bare') ? '' : `${esc(el.dataset.label)}: `;
+    if (field === 'phone') el.innerHTML = `${label}<a href="tel:${esc(v.replace(/[^\d+]/g, ''))}">${esc(v)}</a>`;
+    else if (field === 'email') el.innerHTML = `${label}<a href="mailto:${esc(v)}">${esc(v)}</a>`;
+    else el.textContent = `${label}${v}`;
   }
 }

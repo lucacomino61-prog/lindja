@@ -7,7 +7,7 @@ import { CAR_IMAGES } from '../content/cars.js';
 const MAKES = ['Hyundai', 'Kia', 'Genesis', 'KGM'];
 const FUELS = ['petrol', 'diesel', 'hybrid', 'ev'], GEARS = ['auto', 'manual'], BODIES = ['suv', 'sedan', 'hatch', 'ev'], CAR_STATES = ['new', 'used', 'korea'];
 const REQ_STATES = ['new', 'contacted', 'closed'];
-const ROUTES = { kerkesat: 'requests', makinat: 'cars', kontakti: 'contact' };
+const ROUTES = { kerkesat: 'requests', makinat: 'cars', kontakti: 'contact', statistikat: 'stats' };
 const YEAR_MAX = new Date().getFullYear() + 1;
 const MONTHS_SQ = ['jan', 'shk', 'mar', 'pri', 'maj', 'qer', 'korr', 'gush', 'sht', 'tet', 'nën', 'dhj']; // Chrome ships no Albanian date names
 
@@ -22,13 +22,14 @@ const icon = {
   arrow: i('<path d="M4 12h15m-6-6 6 6-6 6"/>'), chev: i('<path d="m6 9 6 6 6-6"/>'), close: i('<path d="m6 6 12 12M18 6 6 18"/>'),
   plus: i('<path d="M12 5v14M5 12h14"/>'), search: i('<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>'), out: i('<path d="M14 5h5v14h-5M10 8l-4 4 4 4M6 12h10"/>'),
   ext: i('<path d="M14 5h5v5M19 5l-8 8M17 14v5H5V7h5"/>'), down: i('<path d="M12 4v11m-5-5 5 5 5-5M5 20h14"/>'), refresh: i('<path d="M19 8a8 8 0 1 0 1 6M19 3v5h-5"/>'),
+  copy: i('<rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/>'),
 };
 const wordmark = '<svg class="wordmark" viewBox="0 0 150 44" aria-hidden="true"><text x="75" y="35" text-anchor="middle">lindja</text></svg>';
 
 let lang = (() => { try { return localStorage.getItem('lindja-admin-lang') === 'en' ? 'en' : 'sq'; } catch { return 'sq'; } })();
 let t = T[lang];
 const root = document.getElementById('app');
-const state = { requests: [], cars: [], site: null, loaded: { requests: false, data: false }, filter: { kind: 'all', status: 'any', q: '' }, open: new Set(), view: 'requests' };
+const state = { requests: [], cars: [], site: null, stats: null, statsDays: 30, loaded: { requests: false, data: false }, filter: { kind: 'all', status: 'any', q: '' }, open: new Set(), view: 'requests' };
 
 // ---------- API ----------
 class ApiError extends Error { constructor(status, data) { super(data?.error || String(status)); this.status = status; this.data = data; } }
@@ -152,7 +153,7 @@ function renderShell() {
   <a class="skip-link" href="#view">${esc(t.skip)}</a>
   <header class="bar">
     <a class="bar__brand" href="#kerkesat" aria-label="LINDJA — ${esc(t.nav.requests)}">${wordmark}<span>${esc(T[lang].login.title)}</span></a>
-    <nav aria-label="${esc(t.nav.label)}"><ul class="tabs">${tab('kerkesat', 'requests', '<span class="tab__n" aria-hidden="true"></span>')}${tab('makinat', 'cars')}${tab('kontakti', 'contact')}</ul></nav>
+    <nav aria-label="${esc(t.nav.label)}"><ul class="tabs">${tab('kerkesat', 'requests', '<span class="tab__n" aria-hidden="true"></span>')}${tab('makinat', 'cars')}${tab('kontakti', 'contact')}${tab('statistikat', 'stats')}</ul></nav>
     <div class="bar__tools">
       <div role="group" aria-label="${esc(t.nav.lang)}" style="display:flex"><button type="button" data-lang="sq" aria-pressed="${lang === 'sq'}">SQ</button><button type="button" data-lang="en" aria-pressed="${lang === 'en'}">EN</button></div>
       <a href="/${lang === 'en' ? 'en/' : ''}" target="_blank" rel="noopener">${icon.ext}<span class="lbl">${esc(t.nav.site)}</span></a>
@@ -189,7 +190,12 @@ function route(focus) {
   $$('.tab').forEach((a) => (a.dataset.view === state.view ? a.setAttribute('aria-current', 'page') : a.removeAttribute('aria-current')));
   document.title = `${t.nav[state.view]} · ${t.login.title} LINDJA`;
   draw();
+  if (state.view === 'stats') loadStats();
   if (focus) $('#view').focus({ preventScroll: true });
+}
+async function loadStats() {
+  try { state.stats = (await api(`stats?days=${state.statsDays}`)).stats; } catch (e) { if (e.status !== 401) toast(failText(e), 'error'); state.stats = state.stats || []; }
+  if (state.view === 'stats') draw();
 }
 async function loadAll() {
   const [r, d] = await Promise.allSettled([api('requests'), api('data')]);
@@ -212,7 +218,36 @@ function draw() {
   const n = state.requests.filter((r) => r.status === 'new').length;
   const badge = $('.tab__n');
   if (badge) badge.textContent = n ? String(n) : '';
-  view.innerHTML = state.view === 'cars' ? viewCars() : state.view === 'contact' ? viewContact() : viewRequests();
+  view.innerHTML = state.view === 'cars' ? viewCars() : state.view === 'contact' ? viewContact() : state.view === 'stats' ? viewStats() : viewRequests();
+}
+
+// ---------- stats: the daily totals, added up over the period ----------
+function viewStats() {
+  const S = t.stats;
+  const period = `<label class="period"><span>${esc(S.period)}</span><select data-act="stats-days">${[7, 30, 90].map((d) => `<option value="${d}"${d === state.statsDays ? ' selected' : ''}>${esc(S.days(d))}</option>`).join('')}</select></label>`;
+  if (!state.stats) return head(S.h, S.lead, period) + '<div aria-hidden="true">' + '<div class="sk"></div>'.repeat(4) + '</div>';
+  const days = state.stats;
+  const sum = (f) => days.reduce((n, d) => n + (f(d) || 0), 0);
+  const views = { sq: sum((d) => d.views?.sq), en: sum((d) => d.views?.en) };
+  const total = views.sq + views.en;
+  if (!total && !days.length) return head(S.h, S.lead, period) + `<div class="empty"><p>${esc(S.empty)}</p></div>`;
+  const add = (key) => days.reduce((m, d) => { for (const [k, v] of Object.entries(d[key] || {})) m[k] = (m[k] || 0) + v; return m; }, {});
+  const sources = Object.entries(add('sources')).sort((a, b) => b[1] - a[1]);
+  const cta = Object.entries(add('cta')).sort((a, b) => b[1] - a[1]);
+  const form = (k) => ({ start: sum((d) => d.forms?.[k]?.start), ok: sum((d) => d.forms?.[k]?.ok), error: sum((d) => d.forms?.[k]?.error) });
+  const pct = (a, b) => (b ? `${Math.round((a / b) * 100)}%` : '—');
+  const table = (caption, head2, rows) => `<table class="st"><caption>${esc(caption)}</caption><thead><tr>${head2.map((h, i) => `<th scope="col"${i ? ' class="num"' : ''}>${esc(h)}</th>`).join('')}</tr></thead><tbody>${rows.length ? rows.map((r) => `<tr>${r.map((c, i) => (i ? `<td class="num">${c}</td>` : `<th scope="row">${c}</th>`)).join('')}</tr>`).join('') : `<tr><td colspan="${head2.length}" class="st__none">—</td></tr>`}</tbody></table>`;
+  const srcLabel = (k) => esc(k.replace(/^direct \/ - \/ -$/, S.direct).replace(/ \/ -/g, ''));
+  return `${head(S.h, S.lead, period)}
+  <div class="st-grid">
+    ${table(S.visits, ['', S.count], [[esc(S.total), `<b>${total}</b>`], [esc(S.sq), views.sq], [esc(S.en), views.en]])}
+    ${table(S.forms, [S.form, S.start, S.ok, S.error, S.rate], ['drive', 'order'].map((k) => { const f = form(k); return [esc(t.req.kinds[k]), f.start, f.ok, f.error, `<b>${pct(f.ok, f.start)}</b>`]; }))}
+    ${table(S.sources, [S.source, S.count], sources.slice(0, 20).map(([k, v]) => [srcLabel(k), v]))}
+    ${table(S.cta, [S.button, S.clicks], cta.map(([k, v]) => [esc(S.ctas[k] || k), v]))}
+    ${table(S.search, ['', S.count], [[esc(S.hit), sum((d) => d.search?.hit)], [esc(S.miss), sum((d) => d.search?.miss)]])}
+    ${table(S.byDay, [S.day, S.count], [...days].reverse().map((d) => [esc(dayLabel(d.day)), (d.views?.sq || 0) + (d.views?.en || 0)]))}
+  </div>
+  <p class="field__hint">${esc(S.rate)}: ${esc(S.rateHint)}</p>`;
 }
 
 // ---------- requests ----------
@@ -254,7 +289,7 @@ function rowRequest(r) {
     <div class="rq__row">
       <div class="state" data-state="${r.status}"><label class="visually-hidden" for="st-${esc(r.id)}">${esc(R.stateLabel)}: ${esc(d.name)}</label><select id="st-${esc(r.id)}" data-act="req-status">${REQ_STATES.map((s) => `<option value="${s}"${s === r.status ? ' selected' : ''}>${esc(R.states[s])}</option>`).join('')}</select></div>
       <span class="kind kind--${r.kind}">${esc(R.kindsShort[r.kind])}</span>
-      <div class="who"><b>${esc(d.name)}</b><span><a href="tel:${esc(tel)}">${esc(d.phone)}</a><a href="mailto:${esc(d.email)}">${esc(d.email)}</a></span></div>
+      <div class="who"><b>${esc(d.name)}</b><span><span class="who__c"><a href="tel:${esc(tel)}">${esc(d.phone)}</a><button type="button" class="copy-btn" data-act="copy" data-value="${esc(d.phone)}" aria-label="${esc(t.copy.phone)}: ${esc(d.name)}">${icon.copy}</button></span><span class="who__c"><a href="mailto:${esc(d.email)}">${esc(d.email)}</a><button type="button" class="copy-btn" data-act="copy" data-value="${esc(d.email)}" aria-label="${esc(t.copy.email)}: ${esc(d.name)}">${icon.copy}</button></span></span></div>
       <div class="what">${what}</div>
       <div class="when"><b>${esc(ago(r.createdAt))}</b><time datetime="${esc(r.createdAt)}">${esc(stamp(r.createdAt, true))}</time></div>
       <button type="button" class="rq__toggle" data-act="toggle" aria-expanded="${open}" aria-controls="more-${esc(r.id)}" aria-label="${esc(R.details)}: ${esc(d.name)}">${icon.chev}</button>
@@ -265,6 +300,7 @@ function rowRequest(r) {
           <dt>${esc(R.received)}</dt><dd>${esc(stamp(r.createdAt))}</dd>
           ${r.kind === 'drive' ? `<dt>${esc(R.showroom)}</dt><dd>${esc(R.showrooms[d.showroom] || d.showroom)}</dd><dt>${esc(R.when)}</dt><dd>${esc(dayLabel(d.date))}, ${esc(d.time)}</dd>` : `<dt>${esc(R.budget)}</dt><dd>${euro(d.budget)}</dd>${d.yearFrom ? `<dt>${esc(R.yearFrom)}</dt><dd>${d.yearFrom}</dd>` : ''}`}
           <dt>${esc(R.lang)}</dt><dd>${r.lang === 'en' ? 'English' : 'Shqip'}</dd>
+          ${r.source ? `<dt>${esc(t.source)}</dt><dd>${esc([r.source.source, r.source.medium, r.source.campaign].filter(Boolean).join(' / '))}</dd>` : ''}
         </dl>
         ${r.kind === 'drive' ? (d.notes ? `<p class="rq__quote">${esc(d.notes)}</p>` : `<p class="field__hint">${esc(R.noNotes)}</p>`) : ''}
       </div>
@@ -402,6 +438,10 @@ async function onClick(e) {
   if (!b) return;
   const act = b.dataset.act;
   if (act === 'refresh') { b.setAttribute('aria-busy', 'true'); await reloadRequests(); return; }
+  if (act === 'copy') {
+    try { await navigator.clipboard.writeText(b.dataset.value); toast(t.copy.done); } catch { toast(t.copy.fail, 'error'); }
+    return;
+  }
   if (act === 'clear') { state.filter = { kind: 'all', status: 'any', q: '' }; draw(); return; }
   if (act === 'toggle') {
     const r = reqOf(b), more = $(`#more-${CSS.escape(r.id)}`);
@@ -431,6 +471,7 @@ async function onClick(e) {
 }
 async function onChange(e) {
   const el = e.target;
+  if (el.dataset.act === 'stats-days') { state.statsDays = +el.value; state.stats = null; draw(); loadStats(); return; }
   if (el.dataset.act === 'req-status') {
     const r = reqOf(el), was = r.status;
     r.status = el.value;

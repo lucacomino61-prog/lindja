@@ -19,11 +19,18 @@ const digits = (v) => clean(v).replace(/[^\d]/g, '');
 const money = (v) => parseInt(String(v ?? '').replace(/[^\d]/g, ''), 10);
 const email = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean(v)) && clean(v).length <= 120;
 
+// ---------- where a visit came from: utm_source / utm_medium / utm_campaign, or the referring site ----------
+export const token = (v) => String(v ?? '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
+export const checkSource = (u) => (u && typeof u === 'object' ? { source: token(u.source) || 'direct', medium: token(u.medium), campaign: token(u.campaign) } : null);
+export const CTAS = ['hero-cars', 'hero-order', 'header-order', 'header-drive', 'menu-order', 'car-drive', 'car-ask', 'mega-drive', 'mega-order', 'mega-import', 'spot-more'];
+export const EVENT_TYPES = ['view', 'cta', 'form_start', 'form_ok', 'form_error', 'search'];
+
 // ---------- a test-drive booking or an order request from the site ----------
 export function checkRequest(body, cars) {
   const errors = [];
   const d = body?.data || {};
-  const out = { kind: body?.kind, lang: body?.lang === 'en' ? 'en' : 'sq' };
+  // the campaign that brought the visitor, only sent when they accepted counting
+  const out = { kind: body?.kind, lang: body?.lang === 'en' ? 'en' : 'sq', source: checkSource(body?.utm) };
   const need = (ok, field) => { if (!ok) errors.push(field); };
   need(str(d.name, 2, 80), 'name');
   need(digits(d.phone).length >= 6 && digits(d.phone).length <= 20, 'phone');

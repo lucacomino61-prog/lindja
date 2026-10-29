@@ -1,6 +1,7 @@
 // Server-side page template for LINDJA: every word and every car is in the HTML before any script runs.
 // The admin's live catalogue and contact details replace them in the browser when they differ (ui/live.js).
 import { esc, euro, carCard, driveOptions, priceCap } from './car-card.js';
+import { ORIGIN, ROUTES, dateLabel, isoDate } from './site.js';
 
 const jsonLt = String.fromCharCode(92) + 'u003c';
 const json = (v) => JSON.stringify(v).replace(/</g, jsonLt);
@@ -17,6 +18,7 @@ const icon = {
   list: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
   grid: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z"/></svg>',
   wheel: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="2.2"/><path d="M12 3.5v6.3M4.6 15.5l5.4-2.4M19.4 15.5 14 13.1"/></svg>',
+  copy: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="1.5"/><path d="M16 8V5.5A1.5 1.5 0 0 0 14.5 4h-9A1.5 1.5 0 0 0 4 5.5v9A1.5 1.5 0 0 0 5.5 16H8"/></svg>',
 };
 const wordmark = (cls = '') => `<svg class="wordmark ${cls}" viewBox="0 0 150 44" aria-hidden="true"><text x="75" y="35" text-anchor="middle">lindja</text></svg>`;
 
@@ -32,13 +34,13 @@ const SHOWROOM_IDS = ['tirana', 'durres'];
 const siteField = (key, label, unset) => `<span data-site="${key}" data-label="${esc(label)}">${esc(label)}: ${esc(unset)}</span>`;
 const honeypot = '<div class="hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>';
 
-function langSwitch(t, all, cls = '') {
-  return `<ul class="lang ${cls}" aria-label="${esc(t.nav.language)}">${all.map((l) => `<li><a href="${l.path}" hreflang="${l.lang}" lang="${l.lang}"${l.lang === t.lang ? ' aria-current="true"' : ''}><abbr title="${esc(l.label)}">${l.short}</abbr></a></li>`).join('')}</ul>`;
+export function langSwitch(t, all, cls = '', kind = 'home') {
+  return `<ul class="lang ${cls}" aria-label="${esc(t.nav.language)}">${all.map((l) => `<li><a href="${ROUTES[l.lang][kind]}" hreflang="${l.lang}" lang="${l.lang}"${l.lang === t.lang ? ' aria-current="true"' : ''}><abbr title="${esc(l.label)}">${l.short}</abbr></a></li>`).join('')}</ul>`;
 }
 function panel(id, cols, cards) {
   return `<div class="mega__panel" id="panel-${id}" data-nav-content="${id}" role="region">
     <div class="mega__cols">${cols.map((c) => `<div class="mega__col" data-menu-fade><p class="mega__h">${esc(c.h)}</p><ul>${c.links.map(([l, h]) => `<li><a href="${h}" data-close-menu>${esc(l)}</a></li>`).join('')}</ul></div>`).join('')}</div>
-    <div class="mega__cards">${cards.map((k) => `<a class="mega-card mega-card--${k.tone}" href="${k.href}" data-menu-fade data-close-menu>
+    <div class="mega__cards">${cards.map((k) => `<a class="mega-card mega-card--${k.tone}" href="${k.href}" data-menu-fade data-close-menu data-track="${k.track}">
       <span class="mega-card__t">${esc(k.c.t)}</span>
       <span class="mega-card__b">${esc(k.c.b)}</span>
       <img src="/media/${k.img}.webp" alt="" width="640" height="420" loading="lazy" decoding="async">
@@ -48,12 +50,13 @@ function panel(id, cols, cards) {
 
 export function renderPage(t, all, cars) {
   const h = t.hero, n = t.nav, c = t.catalogue;
-  const cDrive = { tone: 'signal', c: n.cardDrive, href: '#test-drive', img: 'still-car-ev-orange' };
-  const cOrder = { tone: 'ink', c: n.cardOrder, href: '#porosi', img: 'still-ship' };
-  const cImport = { tone: 'ink', c: n.cardImport, href: '#importi', img: 'still-transporter' };
+  const cDrive = { tone: 'signal', c: n.cardDrive, href: '#test-drive', img: 'still-car-ev-orange', track: 'mega-drive' };
+  const cOrder = { tone: 'ink', c: n.cardOrder, href: '#porosi', img: 'still-ship', track: 'mega-order' };
+  const cImport = { tone: 'ink', c: n.cardImport, href: '#importi', img: 'still-transporter', track: 'mega-import' };
 
   const header = `
 <a class="skip-link" href="#main">${esc(t.skip)}</a>
+<div class="scroll-progress" aria-hidden="true"><i></i></div>
 <header class="site-header" data-menu-wrap data-menu-open="false">
   <a class="brand" href="${t.path}" aria-label="LINDJA">${wordmark()}</a>
   <nav class="site-nav" aria-label="${esc(n.label)}">
@@ -65,9 +68,10 @@ export function renderPage(t, all, cars) {
     </ul>
   </nav>
   <div class="site-header__tools">
+    <button type="button" class="search-open" aria-expanded="false" aria-controls="site-search" aria-keyshortcuts="/">${icon.search}<span class="visually-hidden">${esc(n.search)}</span></button>
     ${langSwitch(t, all, 'lang--header')}
-    <a class="tool-link" href="#test-drive">${icon.wheel} ${esc(n.drive)}</a>
-    <a class="btn btn--signal btn--header" href="#porosi">${esc(n.order)} ${icon.arrow}</a>
+    <a class="tool-link" href="#test-drive" data-track="header-drive">${icon.wheel} ${esc(n.drive)}</a>
+    <a class="btn btn--signal btn--header" href="#porosi" data-track="header-order">${esc(n.order)} ${icon.arrow}</a>
     <button type="button" class="burger" aria-expanded="false" aria-controls="mobile-menu"><span>${esc(n.menu)}</span><span class="burger__lines" aria-hidden="true"><i></i><i></i></span></button>
   </div>
   <div class="mega" data-dropdown-wrapper>
@@ -77,17 +81,23 @@ export function renderPage(t, all, cars) {
       ${panel('company', n.companyCols, [cDrive, cImport])}
     </div>
   </div>
+  <div class="site-search" id="site-search" role="dialog" aria-label="${esc(n.search)}" data-kinds="${esc(JSON.stringify(t.search.kinds))}" hidden>
+    <form class="site-search__form" role="search" action="#"><label class="visually-hidden" for="ss-q">${esc(n.search)}</label>${icon.search}<input id="ss-q" type="search" placeholder="${esc(n.searchPh)}" autocomplete="off" aria-controls="ss-results"><button type="button" class="site-search__close" aria-label="${esc(n.close)}">${icon.close}</button></form>
+    <p class="search-note" aria-live="polite" data-none="${esc(n.searchNone)}" data-count="${esc(n.searchCount)}"></p>
+    <ul class="search-results" id="ss-results"></ul>
+  </div>
 </header>
 <div class="mega-backdrop" data-menu-backdrop></div>
 <div class="mobile-menu" id="mobile-menu" tabindex="-1" aria-label="${esc(n.menu)}" hidden>
   <form class="mm-search" role="search" action="#"><label class="visually-hidden" for="mm-q">${esc(n.search)}</label><input id="mm-q" type="search" placeholder="${esc(n.searchPh)}" autocomplete="off"><button type="submit" aria-label="${esc(n.search)}">${icon.search}</button></form>
-  <p class="mm-search__note" aria-live="polite" data-none="${esc(n.searchNone)}"></p>
+  <p class="mm-search__note search-note" aria-live="polite" data-none="${esc(n.searchNone)}" data-count="${esc(n.searchCount)}"></p>
+  <ul class="search-results search-results--menu"></ul>
   <ul class="mm-list">
     ${[[n.cars, n.carsCols], [n.import, n.importCols], [n.company, n.companyCols]].map(([lbl, cols]) => `<li><details><summary>${esc(lbl)}${icon.chev}</summary>${cols.map((col) => `<p class="mm-h">${esc(col.h)}</p><ul>${col.links.map(([l, hh]) => `<li><a href="${hh}" data-close-menu>${esc(l)}</a></li>`).join('')}</ul>`).join('')}</details></li>`).join('')}
     <li><a class="mm-link" href="#test-drive" data-close-menu>${esc(n.drive)}</a></li>
     <li><a class="mm-link" href="#kontakt" data-close-menu>${esc(n.contact)}</a></li>
   </ul>
-  <a class="btn btn--signal btn--block" href="#porosi" data-close-menu>${esc(n.order)} ${icon.arrow}</a>
+  <a class="btn btn--signal btn--block" href="#porosi" data-close-menu data-track="menu-order">${esc(n.order)} ${icon.arrow}</a>
   ${langSwitch(t, all, 'lang--menu')}
 </div>`;
 
@@ -99,7 +109,7 @@ export function renderPage(t, all, cars) {
         <p class="spot__title">${esc(cd.title)}</p>
         <ul class="tags">${cd.tags.map((g) => `<li>${esc(g)}</li>`).join('')}</ul>
         <p class="spot__text">${esc(cd.text)}</p>
-        <a class="spot__more" href="#${cd.to}">${esc(cd.more)} ${icon.arrow}</a>
+        <a class="spot__more" href="#${cd.to}" data-track="spot-more">${esc(cd.more)} ${icon.arrow}</a>
         <button type="button" class="spot__close" aria-label="${esc(h.closeCard)}">${icon.close}</button>
       </div>
     </div>`;
@@ -122,8 +132,8 @@ export function renderPage(t, all, cars) {
       <h1 id="hero-h1">${esc(h.h1)}</h1>
       <p class="hero__lead">${esc(h.lead)}</p>
       <div class="cta-row">
-        <a class="btn btn--signal" href="#makinat">${esc(h.ctaCars)} ${icon.arrow}</a>
-        <a class="btn btn--ghost" href="#porosi">${esc(h.ctaOrder)}</a>
+        <a class="btn btn--signal" href="#makinat" data-track="hero-cars">${esc(h.ctaCars)} ${icon.arrow}</a>
+        <a class="btn btn--ghost" href="#porosi" data-track="hero-order">${esc(h.ctaOrder)}</a>
       </div>
     </div>
   </div>
@@ -195,7 +205,7 @@ export function renderPage(t, all, cars) {
       <span class="route__line" aria-hidden="true"><i></i></span>
       <ol class="legs">${t.route.legs.map((l, i) => `<li class="leg" data-leg="${i}">
         <span class="mono leg__n">0${i + 1}</span>
-        <span class="leg__img"><img src="/media/scene-${i}-desktop.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async"></span>
+        <span class="leg__img"><img src="/media/scene-${i}-desktop.webp" alt="${esc(l.alt)}" width="1920" height="1080" loading="lazy" decoding="async"></span>
         <h3 class="leg__place">${esc(l.place)}</h3>
         <p class="leg__text">${esc(l.text)}</p></li>`).join('')}</ol>
     </div>
@@ -255,7 +265,7 @@ export function renderPage(t, all, cars) {
 <section class="showrooms" id="sallonet" aria-labelledby="sr-h">
   <h2 id="sr-h" class="poster poster--m">${esc(t.showrooms.h)}</h2>
   <ul class="sr-list">${t.showrooms.items.map((s, i) => `<li class="sr">
-    <img src="/media/scene-${i === 0 ? 4 : 3}-desktop.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async">
+    <img src="/media/scene-${i === 0 ? 4 : 3}-desktop.webp" alt="${esc(s.alt)}" width="1920" height="1080" loading="lazy" decoding="async">
     <h3 class="sr__city">${esc(s.city)}</h3><p class="sr__role">${esc(s.role)}</p>
     <p class="sr__meta">${siteField(`${SHOWROOM_IDS[i]}.address`, t.showrooms.addrLabel, t.unset)}<br>${siteField(`${SHOWROOM_IDS[i]}.hours`, t.showrooms.hoursLabel, t.unset)}</p></li>`).join('')}</ul>
 </section>`;
@@ -301,34 +311,10 @@ export function renderPage(t, all, cars) {
   <ul class="guides__list">${t.guides.items.map((g) => `<li class="guide"><span class="guide__rule" aria-hidden="true"></span><p class="guide__k">${esc(g.k)}</p><h3>${esc(g.h)}</h3><p>${esc(g.t)}</p></li>`).join('')}</ul>
 </section>`;
 
-  const ft = t.footer;
-  const footer = `
-<footer class="site-footer" id="kontakt">
-  <p class="site-footer__mark" aria-hidden="true">lindja</p>
-  <div class="site-footer__grid">
-    <div><p class="mono">${esc(ft.contact)}</p><ul><li>${siteField('contact.address', ft.addressLabel, t.unset)}</li><li>${siteField('contact.phone', ft.phoneLabel, t.unset)}</li><li>${siteField('contact.email', ft.emailLabel, t.unset)}</li></ul></div>
-    <div><p class="mono">${esc(ft.cols)}</p><ul><li><a href="#makinat">${esc(n.cars)}</a></li><li><a href="#importi">${esc(t.route.h)}</a></li><li><a href="#porosi">${esc(n.order)}</a></li><li><a href="#test-drive">${esc(n.drive)}</a></li></ul></div>
-    <div><p class="mono">${esc(n.language)}</p>${langSwitch(t, all, 'lang--footer')}
-      <button type="button" class="motion-toggle motion-toggle--footer" aria-pressed="false" data-label-stop="${esc(h.stop)}" data-label-start="${esc(h.start)}">${icon.pause}<span>${esc(h.stop)}</span></button></div>
-  </div>
-  <p class="site-footer__legal">${esc(ft.legal)}</p>
-  <p class="site-footer__legal">${esc(ft.credit)} <a href="/models/sketchfab/CREDITS.txt">${esc(ft.creditLink)}</a></p>
-  <a class="site-footer__top" href="#lindja-film">${esc(ft.top)} ${icon.arrow}</a>
-</footer>`;
-
-  // vite-ignore: the build rewrites every <link href> as an asset, and these point at page folders
-  const alt = all.map((l) => `<link rel="alternate" hreflang="${l.lang}" href="${l.path}" vite-ignore>`).join('\n') + `\n<link rel="alternate" hreflang="x-default" href="/" vite-ignore>`;
   return `<!doctype html>
 <html lang="${t.lang}" data-motion="on">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>${esc(t.meta.title)}</title>
-<meta name="description" content="${esc(t.meta.description)}">
-<meta name="robots" content="noindex">
-<meta name="theme-color" content="#EEF0EC">
-${alt}
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+${headTags(t, all, { kind: 'home', title: t.meta.title, description: t.meta.description })}
 <link rel="preload" href="/fonts/bigshoulders-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/fonts/geist.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="/media/film.json" as="fetch" crossorigin>
@@ -348,8 +334,75 @@ ${showrooms}
 ${drive}
 ${guides}
 </main>
-${footer}
+${siteFooter(t, all, 'home')}
 <script type="module" src="/src/main.js"></script>
 </body>
 </html>`;
+}
+
+// ---------- shared by the home page and the legal pages ----------
+// title, description, canonical, hreflang (absolute, for this kind of page in each language), share tags, icons
+export function headTags(t, all, { kind, title, description }) {
+  const url = ORIGIN + ROUTES[t.lang][kind];
+  const og = t.share;
+  return `<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}">
+<meta name="robots" content="noindex">
+<link rel="canonical" href="${url}">
+${all.map((l) => `<link rel="alternate" hreflang="${l.lang}" href="${ORIGIN}${ROUTES[l.lang][kind]}">`).join('\n')}
+<link rel="alternate" hreflang="x-default" href="${ORIGIN}${ROUTES.sq[kind]}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="LINDJA">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:url" content="${url}">
+<meta property="og:locale" content="${og.locale}">
+<meta property="og:image" content="${ORIGIN}/media/og-${t.lang}.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="${esc(og.imageAlt)}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="theme-color" content="#EEF0EC">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="manifest" href="/site.webmanifest">`;
+}
+
+// kind: 'home' (section links stay in the page) or a legal page (they go back to the home page)
+export function siteFooter(t, all, kind) {
+  const n = t.nav, h = t.hero, ft = t.footer, R = ROUTES[t.lang];
+  const at = kind === 'home' ? '' : R.home; // "#makinat" on the home page, "/#makinat" elsewhere
+  return `
+<footer class="site-footer" id="kontakt">
+  <p class="site-footer__mark" aria-hidden="true">lindja</p>
+  <div class="site-footer__grid">
+    <div><p class="mono">${esc(ft.contact)}</p><ul><li>${siteField('contact.address', ft.addressLabel, t.unset)}</li><li>${siteField('contact.phone', ft.phoneLabel, t.unset)}</li><li>${siteField('contact.email', ft.emailLabel, t.unset)}</li></ul></div>
+    <div><p class="mono">${esc(ft.cols)}</p><ul><li><a href="${at}#makinat">${esc(n.cars)}</a></li><li><a href="${at}#importi">${esc(t.route.h)}</a></li><li><a href="${at}#porosi">${esc(n.order)}</a></li><li><a href="${at}#test-drive">${esc(n.drive)}</a></li></ul></div>
+    <div><p class="mono">${esc(n.language)}</p>${langSwitch(t, all, 'lang--footer', kind)}
+      <button type="button" class="motion-toggle motion-toggle--footer" aria-pressed="false" data-label-stop="${esc(h.stop)}" data-label-start="${esc(h.start)}">${icon.pause}<span>${esc(h.stop)}</span></button></div>
+  </div>
+  <ul class="site-footer__links">
+    <li><a href="${R.privacy}"${kind === 'privacy' ? ' aria-current="page"' : ''}>${esc(ft.privacy)}</a></li>
+    <li><a href="${R.terms}"${kind === 'terms' ? ' aria-current="page"' : ''}>${esc(ft.terms)}</a></li>
+    <li><button type="button" class="link-btn" data-consent-open>${esc(ft.consent)}</button></li>
+    <li><button type="button" class="link-btn" data-copy-link data-done="${esc(ft.copied)}" data-fail="${esc(ft.copyFail)}">${icon.copy}<span aria-live="polite">${esc(ft.copy)}</span></button></li>
+  </ul>
+  <p class="site-footer__legal">${esc(ft.legal)}</p>
+  <p class="site-footer__legal">${esc(ft.credit)} <a href="/models/sketchfab/CREDITS.txt">${esc(ft.creditLink)}</a></p>
+  <p class="site-footer__legal">${esc(ft.updated)} <time datetime="${isoDate()}">${esc(dateLabel(t.lang))}</time></p>
+  <a class="site-footer__top" href="${kind === 'home' ? '#lindja-film' : '#top'}">${esc(ft.top)} ${icon.arrow}</a>
+  <div class="consent" id="consent" role="region" aria-labelledby="consent-h" hidden>
+    <p class="consent__h" id="consent-h">${esc(t.consent.h)}</p>
+    <p class="consent__text">${esc(t.consent.text)}</p>
+    <div class="consent__acts">
+      <button type="button" class="btn btn--ink btn--sm" data-consent="yes">${esc(t.consent.accept)}</button>
+      <button type="button" class="btn btn--ghost-ink btn--sm" data-consent="no">${esc(t.consent.decline)}</button>
+      <a class="consent__more" href="${R.privacy}#s5">${esc(t.consent.more)}</a>
+    </div>
+  </div>
+  <p class="visually-hidden" id="consent-status" aria-live="polite" data-yes="${esc(t.consent.saved.yes)}" data-no="${esc(t.consent.saved.no)}"></p>
+</footer>`;
 }

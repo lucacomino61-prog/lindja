@@ -7,23 +7,45 @@
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#FF4F12">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <link rel="preload" href="/fonts/bigshoulders-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/src/styles/main.css">
 </head>
 <body class="notfound">
 <a class="skip-link" href="#main">Kalo te përmbajtja</a>
 <main class="nf" id="main" tabindex="-1">
-  <a class="nf__brand" href="/" aria-label="LINDJA"><svg class="wordmark" viewBox="0 0 150 44" aria-hidden="true"><text x="75" y="35" text-anchor="middle">lindja</text></svg></a>
-  <p class="nf__code poster" aria-hidden="true">404</p>
-  <div class="nf__copy">
-    <h1>Kjo faqe nuk ekziston.</h1>
-    <p>Ndoshta lidhja është e vjetër ose ka një gabim shtypi. Makinat, importi dhe sallonet janë në faqen kryesore.</p>
-    <p lang="en" class="nf__en">This page doesn't exist. The cars, the import and the showrooms are on the home page.</p>
-    <div class="cta-row">
-      <a class="btn btn--ink" href="/">Faqja kryesore <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></a>
-      <a class="btn btn--ghost-ink" href="/en/" lang="en">English home</a>
+  <a class="nf__brand" href="/" aria-label="LINDJA">
+    <svg class="wordmark" viewBox="0 0 150 44" aria-hidden="true"><text x="75" y="35" text-anchor="middle">lindja</text></svg>
+  </a>
+  <div class="nf__stage">
+    <p class="nf__code poster" aria-hidden="true"><span>4</span><span>0</span><span>4</span></p>
+    <!-- the car follows the pointer (or a finger, or the arrow keys) along the road; a click makes it honk -->
+    <div class="nf__road">
+      <button type="button" class="nf__car" aria-describedby="nf-honk">
+        <img src="/media/still-car-ev-orange.webp" alt="" width="1280" height="840" decoding="async">
+        <span class="visually-hidden">Bjeri borisë</span>
+      </button>
     </div>
+    <p class="nf__honk mono" id="nf-honk" aria-live="polite"></p>
+  </div>
+  <div class="nf__copy">
+    <h1>Kjo rrugë nuk të çon askund.</h1>
+    <p>Faqja nuk ekziston: ndoshta lidhja është e vjetër ose ka një gabim shtypi. Kërko atë që të duhet, ose merr një nga rrugët më poshtë.</p>
+    <p lang="en" class="nf__en">This page doesn’t exist. Search for what you need, or take one of the roads below.</p>
+    <form class="nf__search" action="/" method="get" role="search">
+      <label class="visually-hidden" for="nf-q">Kërko në faqe</label>
+      <input id="nf-q" name="q" type="search" placeholder="P.sh. Tucson, hibrid, Durrës…" autocomplete="off">
+      <button type="submit" class="btn btn--ink">Kërko <svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg></button>
+    </form>
+    <ul class="nf__links">
+      <li><a href="/#makinat">Makinat</a></li>
+      <li><a href="/#porosi">Porosit nga Koreja</a></li>
+      <li><a href="/#test-drive">Rezervo test drive</a></li>
+      <li><a href="/#kontakt">Kontakti</a></li>
+      <li><a href="/en/" lang="en">English home</a></li>
+    </ul>
   </div>
 </main>
+<script type="module" src="/src/notfound.js"></script>
 </body>
 </html>

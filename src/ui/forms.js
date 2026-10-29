@@ -14,6 +14,10 @@ const rules = {
 function multiStep(form, app) {
   const { gsap } = app;
   const fadeIn = (el) => { if (app.motionOn()) gsap.fromTo(el, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out', clearProps: 'opacity' }); };
+  // counted (only with consent, in track.js): started once, sent, failed on the server
+  const track = (type) => document.dispatchEvent(new CustomEvent('lindja:track', { detail: { type, form: form.dataset.kind } }));
+  let started = false;
+  form.addEventListener('input', () => { if (!started) { started = true; track('form_start'); } });
   const errs = JSON.parse(form.dataset.errors);
   const steps = [...form.querySelectorAll('.qstep')];
   const section = form.closest('section');
@@ -72,15 +76,18 @@ function multiStep(form, app) {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         // t: how long the page has been open; the server drops forms sent faster than a person types
-        body: JSON.stringify({ kind: form.dataset.kind, lang: document.documentElement.lang, t: Math.round(performance.now()), website, data }),
+        body: JSON.stringify({ kind: form.dataset.kind, lang: document.documentElement.lang, t: Math.round(performance.now()), website, data, utm: app.getUtm?.() || null }),
       });
       if (!res.ok) throw Object.assign(new Error('send'), { status: res.status, fields: (await res.json().catch(() => ({}))).fields });
+      track('form_ok');
+      started = false; // "fill in another" counts as a new start
       steps.forEach((s) => { s.hidden = true; s.classList.remove('is-on'); });
       nav.hidden = true; if (note) note.hidden = true;
       done.hidden = false;
       fadeIn(done);
       done.querySelector('button').focus();
     } catch (err) {
+      track('form_error');
       label(at === steps.length - 1 ? 'labelSend' : 'labelNext');
       errBox.textContent = err.status === 429 ? errs.rate : err.status === 422 ? errs.invalid : errs.server;
       errBox.hidden = false;

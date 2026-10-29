@@ -16,10 +16,15 @@ export function initSections(app) {
     e.preventDefault();
     if (id !== 'lindja-film') app.leaveHero?.();
     if (query) app.applyFilters?.(new URLSearchParams(query));
+    // a search result for a car the filters hide: clear the filters first; then mark the card that was found
+    const card = el.closest('.car');
+    if (card?.hidden) app.applyFilters?.(new URLSearchParams());
+    if (card) { card.classList.remove('is-found'); void card.offsetWidth; card.classList.add('is-found'); }
     if (a.dataset.car) app.preselectCar?.(a.dataset.car);
     if (a.dataset.ask) app.prefillOrder?.(a.dataset.ask);
     lenis.resize();
-    lenis.scrollTo(el, { immediate: !app.motionOn(), duration: 1.1, onComplete: () => { el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } });
+    // a car's name sits under its photo: bring the whole card into view, focus its name
+    lenis.scrollTo(card || el, { immediate: !app.motionOn(), duration: 1.1, onComplete: () => { el.setAttribute('tabindex', '-1'); el.focus({ preventScroll: true }); } });
     history.replaceState(null, '', `#${id}`);
   });
 

@@ -103,14 +103,6 @@ export function initMenu(app) {
   sheet.querySelectorAll('[data-close-menu]').forEach((a) => a.addEventListener('click', () => setSheet(false)));
   void openText;
 
-  // in-page search from the phone sheet: jump to the first section that mentions the word
-  sheet.querySelector('.mm-search').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const raw = sheet.querySelector('input').value.trim();
-    const q = raw.toLowerCase();
-    if (!q) return;
-    const hit = [...document.querySelectorAll('main section')].find((s) => s.id !== 'lindja-film' && s.textContent.toLowerCase().includes(q));
-    if (hit) { note.textContent = ''; setSheet(false); app.leaveHero?.(); lenis.resize(); lenis.scrollTo(hit, { immediate: !app.motionOn() }); }
-    else note.textContent = note.dataset.none.replace('{q}', raw);
-  });
+  // the search inside the sheet lives in search.js; its result links carry data-close-menu
+  sheet.addEventListener('click', (e) => { if (e.target.closest('.search-results a')) setSheet(false); });
 }

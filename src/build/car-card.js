@@ -16,8 +16,8 @@ export function carCard(x, c, lang) {
       <p class="car__spec mono"><span>${x.year}</span>${x.km ? `<span>${kmf(x.km, lang)} ${esc(c.km)}</span>` : ''}<span>${esc(c.fuels[x.fuel])}</span><span>${esc(c.gear[x.gear])}</span></p>
       <p class="car__price"><span class="car__amount tabular">${euro(x.price, lang)}</span><span class="car__plabel">${esc(c.priceLabel)}</span></p>
       <div class="car__acts">
-        ${x.status === 'korea' ? '' : `<a class="btn btn--ink btn--sm" href="#test-drive" data-car="${esc(x.id)}">${esc(c.drive)} ${arrow}</a>`}
-        <a class="btn btn--ghost-ink btn--sm" href="#porosi" data-ask="${esc(`${x.make} ${x.model} ${x.year}`)}">${esc(c.ask)}</a>
+        ${x.status === 'korea' ? '' : `<a class="btn btn--ink btn--sm" href="#test-drive" data-car="${esc(x.id)}" data-track="car-drive">${esc(c.drive)} ${arrow}</a>`}
+        <a class="btn btn--ghost-ink btn--sm" href="#porosi" data-ask="${esc(`${x.make} ${x.model} ${x.year}`)}" data-track="car-ask">${esc(c.ask)}</a>
       </div>
     </article></li>`;
 }

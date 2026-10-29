@@ -1,0 +1,7 @@
+# LINDJA is a prototype: every page carries <meta name="robots" content="noindex">.
+# Pages stay crawlable so that crawlers can read that; the admin and the API are off limits.
+User-agent: *
+Disallow: /admin/
+Disallow: /api/
+
+Sitemap: https://lindja-prototype.netlify.app/sitemap.xml

@@ -2,9 +2,15 @@
 export default {
   lang: 'sq', path: '/', label: 'Shqip', short: 'SQ',
   meta: {
-    title: 'LINDJA — Makina nga Koreja e Jugut, të reja dhe të përdorura (prototip)',
+    title: 'LINDJA — Makina nga Koreja e Jugut (prototip)',
     description: 'Prototip për një importues shqiptar makinash koreane: Hyundai, Kia, Genesis dhe KGM, nga Incheoni në sallonin e Tiranës. Kompania dhe çmimet janë të shpikura.',
   },
+  share: { locale: 'sq_AL', imageAlt: 'LINDJA: anija LINDJA STAR në portin e Incheonit, me tekstin “Makina nga Koreja e Jugut”' },
+  consent: {
+    h: 'Privatësia', text: 'Mund të numërojmë vizitat dhe klikimet, pa cookies dhe pa asgjë që të identifikon, për ta përmirësuar faqen. Vetëm nëse pranon.',
+    accept: 'Prano matjen', decline: 'Jo, faleminderit', more: 'Politika e privatësisë', saved: { yes: 'Matja u aktivizua.', no: 'Matja është e çaktivizuar.' },
+  },
+  search: { kinds: { car: 'Makinë', section: 'Seksion', guide: 'Udhëzues', step: 'Hap' }, open: 'Hap kërkimin' },
   skip: 'Kalo te përmbajtja',
   unset: 'vendoset nga kompania',
   proto: 'Prototip — LINDJA është kompani e shpikur',
@@ -13,7 +19,7 @@ export default {
     label: 'Navigimi kryesor',
     cars: 'Makinat', import: 'Importi', company: 'Sallonet', contact: 'Kontakt',
     drive: 'Rezervo test drive', order: 'Porosit nga Koreja', menu: 'Menu', close: 'Mbyll', language: 'Gjuha',
-    search: 'Kërko në faqe', searchPh: 'P.sh. Tucson, hibrid, Durrës…', searchNone: 'Asnjë rezultat për “{q}”. Provo një model ose një qytet.',
+    search: 'Kërko në faqe', searchPh: 'P.sh. Tucson, hibrid, Durrës…', searchNone: 'Asnjë rezultat për “{q}”. Provo një model ose një qytet.', searchCount: '{n} rezultate',
     carsCols: [
       { h: 'Në sallon', links: [['Të gjitha makinat', '#makinat'], ['Të reja', '#makinat?t=new'], ['Të përdorura', '#makinat?t=used'], ['Elektrike dhe hibride', '#makinat?f=ev']] },
       { h: 'Markat', links: [['Hyundai', '#makinat?m=Hyundai'], ['Kia', '#makinat?m=Kia'], ['Genesis', '#makinat?m=Genesis'], ['KGM', '#makinat?m=KGM']] },
@@ -67,11 +73,11 @@ export default {
     h: 'Si importojmë',
     text: 'Pesë hapa, një përgjegjës. Kështu vjen çdo makinë nga Koreja deri në sallon.',
     legs: [
-      { place: 'Zgjedhja', text: 'Gjejmë makinën në Kore sipas modelit dhe buxhetit, e kontrollojmë dhe të dërgojmë foto dhe raport.' },
-      { place: 'Ngarkimi', text: 'Pas miratimit tënd, makina çregjistrohet për eksport dhe ngarkohet në një anije për makina ose në një kontejner.' },
-      { place: 'Deti', text: 'Anija lundron drejt Durrësit; të njoftojmë në çdo hap të rëndësishëm.' },
-      { place: 'Dogana', text: 'Në Durrës kryejmë zhdoganimin, paguajmë taksat e importit dhe bëjmë kolaudimin.' },
-      { place: 'Salloni', text: 'Makina pastrohet, kontrollohet edhe një herë dhe të dorëzohet në Tiranë.' },
+      { place: 'Zgjedhja', text: 'Gjejmë makinën në Kore sipas modelit dhe buxhetit, e kontrollojmë dhe të dërgojmë foto dhe raport.', alt: 'Sheshi i eksportit në Incheon, me makinat në rreshta dhe magazinën e kontrollit (ilustrim 3D)' },
+      { place: 'Ngarkimi', text: 'Pas miratimit tënd, makina çregjistrohet për eksport dhe ngarkohet në një anije për makina ose në një kontejner.', alt: 'Anija LINDJA STAR në portin e Incheonit; makinat hipin nga rampa anësore (ilustrim 3D)' },
+      { place: 'Deti', text: 'Anija lundron drejt Durrësit; të njoftojmë në çdo hap të rëndësishëm.', alt: 'Anija për makina në det të hapur (ilustrim 3D)' },
+      { place: 'Dogana', text: 'Në Durrës kryejmë zhdoganimin, paguajmë taksat e importit dhe bëjmë kolaudimin.', alt: 'Porti i Durrësit: dogana, kolona e makinave dhe kolaudimi (ilustrim 3D)' },
+      { place: 'Salloni', text: 'Makina pastrohet, kontrollohet edhe një herë dhe të dorëzohet në Tiranë.', alt: 'Salloni LINDJA në Tiranë, me sheshin dhe pistën e provës (ilustrim 3D)' },
     ],
   },
   catalogue: {
@@ -102,8 +108,8 @@ export default {
   showrooms: {
     h: 'Sallonet', addrLabel: 'Adresa', hoursLabel: 'Orari',
     items: [
-      { city: 'Tiranë', role: 'Salloni kryesor, test drive dhe servis' },
-      { city: 'Durrës', role: 'Pranë portit: dorëzime dhe makina sapo mbërritur' },
+      { city: 'Tiranë', role: 'Salloni kryesor, test drive dhe servis', alt: 'Salloni LINDJA në Tiranë me makinat në shesh (ilustrim 3D)' },
+      { city: 'Durrës', role: 'Pranë portit: dorëzime dhe makina sapo mbërritur', alt: 'Porti i Durrësit, ku makinat zbresin nga anija (ilustrim 3D)' },
     ],
   },
   drive: {
@@ -130,6 +136,8 @@ export default {
     contact: 'Kontakt', addressLabel: 'Adresa', phoneLabel: 'Telefon', emailLabel: 'Email',
     cols: 'Faqja', legal: '© 2026 LINDJA. Kompani e shpikur, ndërtuar si prototip. Markat Hyundai, Kia, Genesis dhe KGM u përkasin pronarëve të tyre; LINDJA nuk është përfaqësues i tyre.',
     top: 'Kthehu në krye',
+    privacy: 'Politika e privatësisë', terms: 'Kushtet e përdorimit', consent: 'Cilësimet e privatësisë',
+    copy: 'Kopjo lidhjen e faqes', copied: 'Lidhja u kopjua', copyFail: 'Kopjimi nuk u lejua; kopjoje nga shiriti i adresës', updated: 'Përditësuar më',
     credit: 'Modelet 3D nga Sketchfab (CC-BY 4.0): anija e kontejnerëve nga RM02; Hyundai Sonata nga m3ika, i30 N nga 007, Tucson nga razor24, Ioniq 5 nga andikapratamaw; kamioni Hyundai Xcient nga asian3dmodel, rimorkio nga maregajavier; kontejnerët nga Sebastian Webster dhe yxungsauce2; ulliri nga CeDRI, selvia nga ElectroNick, pisha nga evolveduk; rimorkiatori nga Mixmamo.studio; punëtorët e portit nga Jungle Jim; ngritësi me pirun nga Ricardo Sanchez. Qiejt dhe sipërfaqet: Poly Haven (CC0). Relievi: AWS Terrain Tiles (SRTM dhe burime të tjera të hapura).',
     creditLink: 'Kreditet e plota',
   },

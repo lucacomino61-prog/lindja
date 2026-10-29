@@ -104,6 +104,9 @@ export async function initHero(app) {
   };
   measureChrome();
   addEventListener('resize', measureChrome);
+  // again once styles and fonts have settled (the dev server injects CSS late; a late font can move the band)
+  addEventListener('load', measureChrome);
+  document.fonts?.ready.then(measureChrome);
   const bandTop = () => bandY;
   const inRail = (p) => railBox && p[0] > railBox.x0 && p[1] < railBox.y1 && innerWidth > 991;
   const hintShown = () => !document.documentElement.hasAttribute('data-scrolled') && hero.dataset.step !== '4' && motionOn();
@@ -219,7 +222,7 @@ export async function initHero(app) {
   // ---------- loading ----------
   const target = (data.segments.find((s) => s.name === 'idle0').start + 144) / data.fps;
   let loaderDone = false;
-  function hideLoader() { if (loaderDone) return; loaderDone = true; loader.classList.add('is-done'); intro(); }
+  function hideLoader() { if (loaderDone) return; loaderDone = true; loader.classList.add('is-done'); measureChrome(); intro(); }
   // as the loader lifts: the place word rises, the headline and lead follow; buttons only fade (never move under a tap)
   function intro() {
     if (!motionOn()) return;

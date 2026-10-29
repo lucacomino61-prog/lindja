@@ -2,7 +2,7 @@
 // Everything except login/session needs the signed session cookie; every change must come from this site.
 import { json, fail, sameOrigin, readJson } from '../lib/http.mjs';
 import { configured, checkPassword, sessionCookie, clearCookie, signedIn, visitor } from '../lib/auth.mjs';
-import { readCars, writeCars, readSite, writeSite, listRequests, getRequest, putRequest, deleteRequest, bump, peek, clear } from '../lib/store.mjs';
+import { readCars, writeCars, readSite, writeSite, listRequests, getRequest, putRequest, deleteRequest, bump, peek, clear, readStats } from '../lib/store.mjs';
 import { checkCars, checkSite, REQUEST_STATES } from '../lib/validate.mjs';
 
 const LOCK_AFTER = 8, LOCK_MS = 15 * 60_000;
@@ -19,13 +19,13 @@ export default async (req, context) => {
   if (route === 'login' && m === 'POST') {
     if (!configured()) return fail(503, 'not-configured');
     const key = `auth/${visitor(context)}`;
-    if ((await peek(key)) >= LOCK_AFTER) return fail(429, 'locked', { minutes: 15 });
+    if ((await peek(key, LOCK_MS)) >= LOCK_AFTER) return fail(429, 'locked', { minutes: 15 });
     const body = await readJson(req, 1000);
     if (!body || !checkPassword(body.password)) {
       const n = await bump(key, LOCK_MS);
       return fail(401, 'password', { left: Math.max(0, LOCK_AFTER - n) });
     }
-    await clear(key);
+    await clear(key, LOCK_MS);
     return json({ ok: true }, 200, { 'set-cookie': sessionCookie() });
   }
   if (route === 'logout' && m === 'POST') return json({ ok: true }, 200, { 'set-cookie': clearCookie() });
@@ -36,8 +36,8 @@ export default async (req, context) => {
   if (route === 'requests' && m === 'GET') return json({ ok: true, requests: await listRequests() });
   if (route === 'requests.csv' && m === 'GET') {
     const rows = await listRequests();
-    const head = ['created', 'kind', 'status', 'name', 'phone', 'email', 'car / model', 'showroom', 'date', 'time', 'budget', 'year from', 'notes', 'admin note'];
-    const lines = rows.map((r) => [r.createdAt, r.kind, r.status, r.data.name, r.data.phone, r.data.email, r.data.carLabel || r.data.model, r.data.showroom, r.data.date, r.data.time, r.data.budget, r.data.yearFrom, r.data.notes, r.note].map(csvCell).join(','));
+    const head = ['created', 'kind', 'status', 'name', 'phone', 'email', 'car / model', 'showroom', 'date', 'time', 'budget', 'year from', 'notes', 'admin note', 'source', 'medium', 'campaign'];
+    const lines = rows.map((r) => [r.createdAt, r.kind, r.status, r.data.name, r.data.phone, r.data.email, r.data.carLabel || r.data.model, r.data.showroom, r.data.date, r.data.time, r.data.budget, r.data.yearFrom, r.data.notes, r.note, r.source?.source, r.source?.medium, r.source?.campaign].map(csvCell).join(','));
     return new Response('﻿' + [head.map(csvCell).join(','), ...lines].join('\r\n'), { headers: { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="lindja-requests-${new Date().toISOString().slice(0, 10)}.csv"`, 'cache-control': 'no-store' } });
   }
   const one = route.match(/^requests\/([\w-]{8,60})$/);
@@ -53,6 +53,12 @@ export default async (req, context) => {
     return json({ ok: true, request: r });
   }
   if (one && m === 'DELETE') { await deleteRequest(one[1]); return json({ ok: true }); }
+
+  // ---------- visit counting: the daily totals of the last 7, 30 or 90 days ----------
+  if (route === 'stats' && m === 'GET') {
+    const days = [7, 30, 90].includes(+url.searchParams.get('days')) ? +url.searchParams.get('days') : 30;
+    return json({ ok: true, days, stats: await readStats(days) });
+  }
 
   // ---------- catalogue + contact ----------
   if (route === 'data' && m === 'GET') { const [cars, site] = await Promise.all([readCars(), readSite()]); return json({ ok: true, cars, site }); }

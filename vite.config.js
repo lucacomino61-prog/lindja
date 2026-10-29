@@ -11,6 +11,10 @@ export default defineConfig({
       input: {
         sq: resolve(import.meta.dirname, 'index.html'),
         en: resolve(import.meta.dirname, 'en/index.html'),
+        privatesia: resolve(import.meta.dirname, 'privatesia/index.html'),
+        kushtet: resolve(import.meta.dirname, 'kushtet/index.html'),
+        'en-privacy': resolve(import.meta.dirname, 'en/privacy/index.html'),
+        'en-terms': resolve(import.meta.dirname, 'en/terms/index.html'),
         notfound: resolve(import.meta.dirname, '404.html'),
         admin: resolve(import.meta.dirname, 'admin/index.html'),
       },
