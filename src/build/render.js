@@ -37,14 +37,16 @@ const honeypot = '<div class="hp" aria-hidden="true"><label>Website <input name=
 export function langSwitch(t, all, cls = '', kind = 'home') {
   return `<ul class="lang ${cls}" aria-label="${esc(t.nav.language)}">${all.map((l) => `<li><a href="${ROUTES[l.lang][kind]}" hreflang="${l.lang}" lang="${l.lang}"${l.lang === t.lang ? ' aria-current="true"' : ''}><abbr title="${esc(l.label)}">${l.short}</abbr></a></li>`).join('')}</ul>`;
 }
+// what each menu row shows in the preview window when it is pointed at
+const PREVIEW = { '#makinat?t=new': 'still-car-ev-white', '#makinat?t=used': 'still-car-suv-grey', '#makinat?f=ev': 'still-car-ev-silver', '#makinat?m=Hyundai': 'still-car-suv-blue', '#makinat?m=Kia': 'still-car-suv-white', '#makinat?m=Genesis': 'still-car-suv-black', '#makinat?m=KGM': 'still-car-suv-green', '#makinat': 'still-car-ev-orange', '#importi': 'scene-1-desktop', '#porosi': 'still-ship', '#financim': 'scene-4-desktop', '#udhezues': 'scene-3-desktop', '#sallonet': 'scene-4-desktop', '#test-drive': 'scene-4-desktop', '#kontakt': 'scene-0-desktop' };
+// a port departures board: a code, the destination (its letters flap in, menu.js), an arrow
 function panel(id, cols, cards) {
+  let n = 0;
+  const first = cols[0].links[0];
   return `<div class="mega__panel" id="panel-${id}" data-nav-content="${id}" role="region">
-    <div class="mega__cols">${cols.map((c) => `<div class="mega__col" data-menu-fade><p class="mega__h">${esc(c.h)}</p><ul>${c.links.map(([l, h]) => `<li><a href="${h}" data-close-menu>${esc(l)}</a></li>`).join('')}</ul></div>`).join('')}</div>
-    <div class="mega__cards">${cards.map((k) => `<a class="mega-card mega-card--${k.tone}" href="${k.href}" data-menu-fade data-close-menu data-track="${k.track}">
-      <span class="mega-card__t">${esc(k.c.t)}</span>
-      <span class="mega-card__b">${esc(k.c.b)}</span>
-      <img src="/media/${k.img}.webp" alt="" width="640" height="420" loading="lazy" decoding="async">
-      <span class="mega-card__a">${esc(k.c.a)} ${icon.arrow}</span></a>`).join('')}</div>
+    <div class="mega__cols">${cols.map((c) => `<div class="mega__col" data-menu-fade><p class="mega__h">${esc(c.h)}</p><ul class="board">${c.links.map(([l, h]) => `<li><a class="board__row" href="${h}" data-close-menu data-preview="/media/${PREVIEW[h] || 'scene-0-desktop'}.webp"><span class="board__code mono">${String(++n).padStart(2, '0')}</span><span class="board__dest" data-flap>${esc(l)}</span><span class="board__go" aria-hidden="true">→</span></a></li>`).join('')}</ul></div>`).join('')}</div>
+    <figure class="mega__preview" data-menu-fade aria-hidden="true"><img src="/media/${PREVIEW[first[1]] || 'scene-0-desktop'}.webp" alt="" width="1280" height="840" loading="lazy" decoding="async"><figcaption class="mono">${esc(first[0])}</figcaption></figure>
+    ${cards.slice(0, 1).map((k) => `<a class="mega__cta mega__cta--${k.tone}" href="${k.href}" data-menu-fade data-close-menu data-track="${k.track}"><span class="mono">${esc(k.c.t)}</span><b>${esc(k.c.b)}</b><span class="mega__cta-a">${esc(k.c.a)} ${icon.arrow}</span></a>`).join('')}
   </div>`;
 }
 
@@ -118,16 +120,17 @@ export function renderPage(t, all, cars) {
   const hero = `
 <section class="hero" id="lindja-film" aria-labelledby="hero-h1" data-step="0">
   <script type="application/json" id="hero-steps">${json(h.steps)}</script>
+  <div class="hero__pin">
   <div class="hero__stage" aria-hidden="true">
     <picture class="hero__poster"><source media="(max-aspect-ratio: 4/5)" srcset="/media/scene-0-phone.webp"><img src="/media/scene-0-desktop.webp" alt="" width="1920" height="1080" fetchpriority="high" decoding="async"></picture>
-    <video class="hero__video" muted playsinline preload="none" disablepictureinpicture tabindex="-1"></video>
-    <video class="hero__video" muted playsinline preload="none" disablepictureinpicture tabindex="-1"></video>
-    <div class="hero__fade"></div>
+    <canvas class="hero__canvas"></canvas>
   </div>
   <div class="hero__spots">${spots}</div>
   <div class="hero__band">
-    <p class="hero__place" aria-live="polite"><span class="mono hero__count">01 / 05</span> <span class="hero__placename">${esc(h.steps[0].place)}</span></p>
-    <p class="hero__word" aria-hidden="true"><span class="hero__word-in">${esc(h.steps[0].word)}</span></p>
+    <div class="hero__sign">
+      <p class="hero__place" aria-live="polite"><span class="mono hero__count">01 / 05</span> <span class="hero__placename">${esc(h.steps[0].place)}</span></p>
+      <p class="hero__word" aria-hidden="true"><span class="hero__word-in">${esc(h.steps[0].word)}</span></p>
+    </div>
     <div class="hero__copy">
       <h1 id="hero-h1">${esc(h.h1)}</h1>
       <p class="hero__lead">${esc(h.lead)}</p>
@@ -141,7 +144,6 @@ export function renderPage(t, all, cars) {
     <ol>${h.steps.map((s, i) => `<li><button type="button" class="rail__btn" data-goto="${i}"${i === 0 ? ' aria-current="step"' : ''}><span class="mono">0${i + 1}</span><span class="rail__name">${esc(s.name)}</span><span class="rail__bar" aria-hidden="true"><i></i></span></button></li>`).join('')}</ol>
     <div class="rail__tools">
       <button type="button" class="motion-toggle" aria-pressed="false" data-label-stop="${esc(h.stop)}" data-label-start="${esc(h.start)}">${icon.pause}<span>${esc(h.stop)}</span></button>
-      <button type="button" class="look-toggle" aria-pressed="false" hidden>${icon.sun}<span>${esc(h.golden)}</span></button>
       <a class="rail__skip" href="#manifest">${esc(h.skipMap)} ${icon.down}</a>
     </div>
   </nav>
@@ -153,12 +155,13 @@ export function renderPage(t, all, cars) {
     <span class="loader__bar" aria-hidden="true"><i></i></span>
     <button type="button" class="loader__skip">${esc(h.loaderSkip)} ${icon.arrow}</button>
   </div>
+  </div>
 </section>`;
 
   const manifest = `
 <section class="manifest" id="manifest" aria-labelledby="manifest-h">
   <h2 id="manifest-h" class="poster poster--xl">${t.manifest.lines.map((l) => `<span class="manifest__line">${esc(l)}</span>`).join('')}</h2>
-  <img class="manifest__truck" src="/media/still-transporter.webp" alt="" width="1280" height="840" loading="lazy" decoding="async">
+  <div class="manifest__road" aria-hidden="true"><img class="manifest__truck" src="/media/still-transporter.webp" alt="" width="1280" height="840" loading="lazy" decoding="async"></div>
   <p class="manifest__text">${esc(t.manifest.text)}</p>
 </section>`;
 
@@ -334,6 +337,17 @@ ${showrooms}
 ${drive}
 ${guides}
 </main>
+<nav class="dock" aria-label="${esc(t.dock.label)}" hidden>
+  <span class="dock__here mono"><span class="visually-hidden">${esc(t.dock.here)}: </span><span data-dock-here>${esc(t.dock.top)}</span></span>
+  <a class="dock__a" href="#makinat">${esc(n.cars)}</a>
+  <button type="button" class="dock__b" data-garage-open><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg><span class="visually-hidden">${esc(t.dock.garage)}</span><b class="dock__n" data-garage-n>0</b></button>
+  <button type="button" class="dock__b" data-compare-open hidden>${esc(t.dock.compare)} <b class="dock__n" data-compare-n>0</b></button>
+  <button type="button" class="dock__b" data-dock-search><svg class="i" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg><span class="visually-hidden">${esc(t.dock.search)}</span></button>
+  <a class="btn btn--signal btn--sm dock__cta" href="#porosi" data-track="dock-order">${esc(t.dock.order)} ${icon.arrow}</a>
+  <p class="visually-hidden" aria-live="polite" data-dock-say></p>
+</nav>
+<dialog class="sheet" id="garage" aria-labelledby="garage-h" data-strings="${esc(JSON.stringify({ g: t.garage, c: t.compare, cat: { fuels: c.fuels, gear: c.gear, bodies: c.bodies, km: c.km, newBadge: c.newBadge, usedBadge: c.usedBadge, inKorea: c.inKorea, drive: c.drive } }))}"></dialog>
+<dialog class="sheet sheet--wide" id="compare" aria-labelledby="compare-h"></dialog>
 ${siteFooter(t, all, 'home')}
 <script type="module" src="/src/main.js"></script>
 </body>

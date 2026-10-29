@@ -22,7 +22,7 @@ const email = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(clean(v)) && clean(v).
 // ---------- where a visit came from: utm_source / utm_medium / utm_campaign, or the referring site ----------
 export const token = (v) => String(v ?? '').toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40);
 export const checkSource = (u) => (u && typeof u === 'object' ? { source: token(u.source) || 'direct', medium: token(u.medium), campaign: token(u.campaign) } : null);
-export const CTAS = ['hero-cars', 'hero-order', 'header-order', 'header-drive', 'menu-order', 'car-drive', 'car-ask', 'mega-drive', 'mega-order', 'mega-import', 'spot-more'];
+export const CTAS = ['hero-cars', 'hero-order', 'header-order', 'header-drive', 'menu-order', 'car-drive', 'car-ask', 'mega-drive', 'mega-order', 'mega-import', 'spot-more', 'dock-order'];
 export const EVENT_TYPES = ['view', 'cta', 'form_start', 'form_ok', 'form_error', 'search'];
 
 // ---------- a test-drive booking or an order request from the site ----------

@@ -1,3 +1,4 @@
+import { odometer } from './feel.js';
 // Test-drive booking (three steps), the order-from-Korea request (one step) and the payment calculator.
 // Bookings and requests go to /api/requests and land in the admin inbox; the server checks them again.
 const rules = {
@@ -151,9 +152,9 @@ export function initForms(app) {
     const m = r === 0 ? P / months : (P * r) / (1 - Math.pow(1 + r, -months));
     spoken.textContent = fmt(m);
     total.textContent = fmt(P);
-    // the figure counts from the last payment to the new one; the first one, or with motion stopped, just appears
-    if (!counted || !app.motionOn()) { counted = true; shown.v = m; monthly.textContent = fmt(m); return; }
-    app.gsap.to(shown, { v: m, duration: 0.45, ease: 'power3.out', overwrite: true, onUpdate: () => { monthly.textContent = fmt(shown.v); } });
+    // the figure rolls like a car's odometer, each digit to its new place (with motion stopped the columns just jump)
+    counted = true; shown.v = m;
+    odometer(monthly, fmt(m));
   }
   calc.addEventListener('input', compute);
   calc.addEventListener('submit', (e) => e.preventDefault());

@@ -11,6 +11,16 @@ export default {
     accept: 'Accept counting', decline: 'No, thanks', more: 'Privacy policy', saved: { yes: 'Counting is on.', no: 'Counting is off.' },
   },
   search: { kinds: { car: 'Car', section: 'Section', guide: 'Guide', step: 'Step' }, open: 'Open search' },
+  dock: { label: 'Quick menu', here: 'You are at', top: 'The route', garage: 'Garage', compare: 'Compare', search: 'Search', order: 'Order' },
+  garage: {
+    title: 'Your garage', lead: 'The cars you saved on this device.', empty: 'Your garage is empty. Press the heart on a car to keep it here.',
+    ask: 'Ask about these cars', remove: 'Remove', close: 'Close', saved: 'Saved to your garage', removed: 'Removed from your garage',
+  },
+  compare: {
+    title: 'Compare cars', lead: 'Up to three cars side by side.', max: 'You can compare up to three cars.', added: 'Added to compare', removed: 'Removed from compare',
+    clear: 'Clear compare', close: 'Close', need: 'Pick at least two cars to compare them.',
+    rows: { price: 'Price (example)', year: 'Year', km: 'Kilometres', fuel: 'Fuel', gear: 'Gearbox', body: 'Body', where: 'Where it is' },
+  },
   skip: 'Skip to content',
   unset: 'set by the company',
   proto: 'Prototype — LINDJA is an invented company',
@@ -34,10 +44,10 @@ export default {
     h1: 'Cars from South Korea, ready for Albanian roads.',
     lead: 'LINDJA chooses, checks and brings Hyundai, Kia, Genesis and KGM from Korea, new and used. We handle customs and the technical inspection.',
     hint: 'Scroll for the next step',
-    skipMap: 'Skip the film',
+    skipMap: 'Skip the route',
     stop: 'Stop motion', start: 'Resume motion', golden: 'Golden hour',
     stepsLabel: 'The car’s journey',
-    loading: 'Loading the film', loaderSkip: 'Skip intro',
+    loading: 'Loading the 3D world', loaderSkip: 'Skip intro',
     open: 'Open', closeCard: 'Close card',
     ctaCars: 'See the cars', ctaOrder: 'Order from Korea',
     steps: [
@@ -93,6 +103,7 @@ export default {
     priceLabel: 'Example price', drive: 'Book a test drive', ask: 'Ask about it',
     count: (n) => `${n} cars`, empty: 'No cars match these filters. Remove one, or order from Korea.', reset: 'Clear filters',
     viewLabel: 'View', list: 'List', grid: 'Grid',
+    save: 'Save to garage', compare: 'Compare',
   },
   order: {
     h: 'Order from Korea',

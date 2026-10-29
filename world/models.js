@@ -6,9 +6,13 @@ import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from 'three/addons/libs/meshopt_decoder.module.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
+import { Q, LIVE_FILES } from './quality.js';
+
 const BASE = '/models/sketchfab/';
 const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
-const scene = (file) => loader.loadAsync(`${BASE}${file}.glb`).then((g) => g.scene);
+// the live page takes the light copy where there is one (public/models/live, tools/live-models.mjs)
+const url = (file) => `${Q.live && LIVE_FILES.has(file) ? '/models/live/' : BASE}${file}.glb`;
+const scene = (file) => loader.loadAsync(url(file)).then((g) => g.scene);
 
 export const METRE = 0.2; // model units per metre: a 4.6 m car is CAR_LENGTH (0.92)
 
@@ -127,7 +131,8 @@ function collapse(parts) {
 export const cars = {};
 async function loadCar(type) {
   const cfg = CAR_MODELS[type];
-  const [hiRoot, loRoot] = await Promise.all([scene(cfg.file), scene(`${cfg.file}-lo`)]);
+  // live: the light copy serves both (no close-up of a single car there); baking copies the geometry, so twice is safe
+  const [hiRoot, loRoot] = Q.live ? await scene(`${cfg.file}-lo`).then((r) => [r, r]) : await Promise.all([scene(cfg.file), scene(`${cfg.file}-lo`)]);
   const len = cfg.m * METRE;
   const prep = (root) => noGround(bake(root))
     .filter((p) => !(p.material.transparent && p.material.opacity < 0.05)) // invisible in the source: helper geometry
@@ -143,6 +148,7 @@ async function loadCar(type) {
   normalise(lo, len, cfg.flip);
   if (!hi.some((p) => p.paint)) console.warn(`[models] ${type}: no paint material matched`);
   cars[type] = { hi, lo: collapse(lo), size };
+  if (Q.live) { const x = prep(await scene(`${cfg.file}-xlo`)); normalise(x, len, cfg.flip); cars[type].xlo = collapse(x); } // the parked rows
 }
 // some exports carry a flat shadow card under the car: drop flat parts lying on the ground
 function noGround(parts) {
@@ -206,8 +212,9 @@ function grow(geo, f) { // every triangle scaled about its own centre (non-index
 async function loadTree(kind) {
   const { file, lo, h, grow: f } = TREE_MODELS[kind];
   const prep = async (name) => { const parts = bake(await scene(name)).map((p) => ({ geo: p.geo, ...leafy(p.material) })); standUp(parts, h); return parts; };
-  const near = await prep(file);
-  const far = lo ? (await prep(lo)).map((p) => (p.leaf ? { ...p, geo: grow(p.geo, f) } : p)) : near;
+  // live: no full model at all (the light one stands near the camera, cards beyond: world/impostor.js)
+  const far = lo ? (await prep(lo)).map((p) => (p.leaf ? { ...p, geo: grow(p.geo, f) } : p)) : await prep(file);
+  const near = Q.live ? far : lo ? await prep(file) : far;
   trees[kind] = { near, far };
 }
 
@@ -216,7 +223,7 @@ async function loadTree(kind) {
 // skinned, cloned per use with their own mixer; forklift: "Forklift low poly" (its body faces point inward: drawn both sides)
 export let tug = null, workerGltf = null, forklift = null;
 async function loadPortKit() {
-  const [tg, wk, fk] = await Promise.all([scene('tugboat'), loader.loadAsync(`${BASE}worker.glb`), scene('forklift')]);
+  const [tg, wk, fk] = await Promise.all([scene('tugboat'), loader.loadAsync(url('worker')), scene('forklift')]);
   tug = bake(tg).filter((p) => p.material.name !== 'material_57').map((p) => ({ geo: p.geo, material: tidy(p.material) }));
   normalise(tug, 6.4, true);
   workerGltf = wk;

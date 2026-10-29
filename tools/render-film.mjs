@@ -1,4 +1,4 @@
-// Renders the world film offline and encodes it: public/media/world-<variant>.mp4, posters, and film.json
+// Renders the world film offline and encodes it: renders/world-<variant>.mp4, stills to public/media, and film.json
 // (segment table + hotspot tracks). usage: node tools/render-film.mjs [--variant desktop|phone|both] [--look day|golden]
 // The golden-hour look writes world-<variant>-golden.mp4 and its posters, and adds srcGolden to film.json.
 import fs from 'node:fs';
@@ -74,8 +74,10 @@ try {
     out.fps = r.L.fps; out.frames = r.L.frames; out.period = r.L.period;
     out.segments = r.L.segments.map(({ name, type, scene, from, to, start, len, loopLen }) => ({ name, type, scene, from, to, start, len, loopLen }));
     out.variants[v] = { size: r.size, src: `/media/world-${v}.mp4`, tracks: r.tracks };
-    for (const f of fs.readdirSync(work)) if (f.endsWith(`-${v}${sfx}.mp4`) || f.endsWith(`-${v}${sfx}.webp`)) fs.copyFileSync(path.join(work, f), path.join(media, f));
-    log('done', v, look, (fs.statSync(path.join(media, `world-${v}${sfx}.mp4`)).size / 1048576).toFixed(2), 'MB');
+    // the site draws the world live now (world/live.js): only the stills (first view, Stop, no WebGL) go to the site;
+    // the MP4 stays in renders/
+    for (const f of fs.readdirSync(work)) if (f.endsWith(`-${v}${sfx}.webp`)) fs.copyFileSync(path.join(work, f), path.join(media, f));
+    log('done', v, look, (fs.statSync(path.join(work, `world-${v}${sfx}.mp4`)).size / 1048576).toFixed(2), 'MB');
   }
   const prev = fs.existsSync(path.join(media, 'film.json')) ? JSON.parse(fs.readFileSync(path.join(media, 'film.json'), 'utf8')) : null;
   if (look === 'golden') { // same camera, same tracks: only the sources are added

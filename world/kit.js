@@ -4,6 +4,8 @@ import * as THREE from 'three';
 import { rng } from './noise.js';
 import * as models from './models.js';
 import { fit } from './models.js';
+import { Q } from './quality.js';
+import { lodCut } from './impostor.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
 export const C = {
@@ -501,7 +503,10 @@ function instanced(geo, material, matrices, colors) {
 const M = (x, y, z, sx = 1, sy = 1, sz = 1, ry = 0) => new THREE.Matrix4().compose(new THREE.Vector3(x, y, z), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, ry, 0)), new THREE.Vector3(sx, sy, sz));
 
 export const TREE_LAYER = 2; // the reflection camera leaves trees out (world.js)
+// live page: the light-model tiles; world/live.js shows only those near the camera (the cards cover the rest)
+export const treeTiles = [];
 export function scatterTrees(points, { near = () => true } = {}) {
+  if (Q.live) return scatterTreesLive(points);
   // Sketchfab olives, cypresses and pines (world/models.js), instanced per 48-unit tile so the camera only draws the
   // tiles in view; near(x, z) picks the full model, otherwise the far copy. points: [{x,y,z,kind,s}]
   const g = new THREE.Group(), r = rng(77), TILE = 48;
@@ -525,6 +530,45 @@ export function scatterTrees(points, { near = () => true } = {}) {
       im.layers.set(TREE_LAYER);
       g.add(im);
     }
+  }
+  return g;
+}
+// the same trees for the live page: light models in 48-unit tiles near the camera, one card mesh per kind beyond
+// (world/impostor.js); every tree stands where it does in the film (turn and size drawn afresh)
+function scatterTreesLive(points) {
+  const g = new THREE.Group(), r = rng(77), TILE = 48;
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), sc = new THREE.Vector3(), pos = new THREE.Vector3();
+  const tiles = new Map(), byKind = new Map(), cut = new Set();
+  for (const p of points) {
+    const s = (p.s || 1) * (0.85 + r() * 0.3);
+    const mm = m4.compose(pos.set(p.x, p.y - 0.03, p.z), q.setFromEuler(e.set(0, r() * 6.283, 0)), sc.set(s, s * (0.9 + r() * 0.2), s)).clone();
+    const tint = new THREE.Color(0.82 + r() * 0.22, 0.86 + r() * 0.18, 0.8 + r() * 0.18);
+    const key = [p.kind, Math.floor(p.x / TILE), Math.floor(p.z / TILE)].join('|');
+    if (!tiles.has(key)) tiles.set(key, []);
+    tiles.get(key).push({ mm, tint });
+    if (!byKind.has(p.kind)) byKind.set(p.kind, []);
+    byKind.get(p.kind).push({ mm, tint });
+  }
+  const im = (geo, material, list, tinted) => {
+    const mesh = new THREE.InstancedMesh(geo, material, list.length);
+    list.forEach((it, i) => { mesh.setMatrixAt(i, it.mm); if (tinted) mesh.setColorAt(i, it.tint); });
+    mesh.castShadow = true; mesh.receiveShadow = true; mesh.computeBoundingSphere(); mesh.layers.set(TREE_LAYER);
+    return mesh;
+  };
+  for (const [key, list] of tiles) {
+    const [kind, tx, tz] = key.split('|');
+    const meshes = models.trees[kind].far.map((part) => {
+      if (!cut.has(part.material)) { lodCut(part.material, true); cut.add(part.material); }
+      return im(part.geo, part.material, list, part.leaf);
+    });
+    meshes.forEach((m) => g.add(m));
+    treeTiles.push({ x: (+tx + 0.5) * TILE, z: (+tz + 0.5) * TILE, meshes });
+  }
+  for (const [kind, list] of byKind) {
+    const c = models.trees[kind].card, mesh = im(c.geo, c.material, list, true);
+    mesh.customDepthMaterial = c.depth;
+    mesh.frustumCulled = false; // one mesh over the whole board
+    g.add(mesh);
   }
   return g;
 }

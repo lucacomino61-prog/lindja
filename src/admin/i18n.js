@@ -50,7 +50,7 @@ export default {
       cta: 'Butonat', button: 'Butoni', clicks: 'Klikime',
       search: 'Kërkimi', hit: 'Me rezultat', miss: 'Pa rezultat',
       byDay: 'Sipas ditës', day: 'Dita',
-      ctas: { 'hero-cars': 'Hero · Shiko makinat', 'hero-order': 'Hero · Porosit nga Koreja', 'header-order': 'Koka · Porosit nga Koreja', 'header-drive': 'Koka · Rezervo test drive', 'menu-order': 'Menuja e telefonit · Porosit', 'car-drive': 'Makina · Rezervo test drive', 'car-ask': 'Makina · Pyet për këtë', 'mega-drive': 'Menuja · Provoje', 'mega-order': 'Menuja · E kërkojmë për ty', 'mega-import': 'Menuja · Si importojmë', 'spot-more': 'Filmi · kartat e pikave' },
+      ctas: { 'hero-cars': 'Hero · Shiko makinat', 'hero-order': 'Hero · Porosit nga Koreja', 'header-order': 'Koka · Porosit nga Koreja', 'header-drive': 'Koka · Rezervo test drive', 'menu-order': 'Menuja e telefonit · Porosit', 'car-drive': 'Makina · Rezervo test drive', 'car-ask': 'Makina · Pyet për këtë', 'mega-drive': 'Menuja · Provoje', 'mega-order': 'Menuja · E kërkojmë për ty', 'mega-import': 'Menuja · Si importojmë', 'spot-more': 'Filmi · kartat e pikave', 'dock-order': 'Shiriti poshtë · Porosit' },
     },
   },
   en: {
@@ -103,7 +103,7 @@ export default {
       cta: 'Buttons', button: 'Button', clicks: 'Clicks',
       search: 'Search', hit: 'With results', miss: 'No results',
       byDay: 'By day', day: 'Day',
-      ctas: { 'hero-cars': 'Hero · See the cars', 'hero-order': 'Hero · Order from Korea', 'header-order': 'Header · Order from Korea', 'header-drive': 'Header · Book a test drive', 'menu-order': 'Phone menu · Order', 'car-drive': 'Car · Book a test drive', 'car-ask': 'Car · Ask about it', 'mega-drive': 'Menu · Drive it', 'mega-order': 'Menu · We find it for you', 'mega-import': 'Menu · How we import', 'spot-more': 'Film · hotspot cards' },
+      ctas: { 'hero-cars': 'Hero · See the cars', 'hero-order': 'Hero · Order from Korea', 'header-order': 'Header · Order from Korea', 'header-drive': 'Header · Book a test drive', 'menu-order': 'Phone menu · Order', 'car-drive': 'Car · Book a test drive', 'car-ask': 'Car · Ask about it', 'mega-drive': 'Menu · Drive it', 'mega-order': 'Menu · We find it for you', 'mega-import': 'Menu · How we import', 'spot-more': 'Film · hotspot cards', 'dock-order': 'Bottom dock · Order' },
     },
   },
 };

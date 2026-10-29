@@ -15,6 +15,9 @@ import { buildStations } from './stations.js';
 import { apartmentBlocks, loadModels } from './cars.js';
 import * as K from './kit.js';
 import { layout, sceneTimes, ease, PERIOD } from './timeline.js';
+import { Q, groundUrl } from './quality.js';
+import { bakeTreeImpostors } from './impostor.js';
+import { trees as treeModels } from './models.js';
 
 const D2R = Math.PI / 180;
 
@@ -62,7 +65,7 @@ function camFromPose(p) {
   return { pos: t.clone().add(off), target: t };
 }
 function lerpAngle(a, b, k) { let d = ((b - a + 540) % 360) - 180; return a + d * k; }
-function interpPose(A, B, x, intro) {
+export function interpPose(A, B, x, intro) {
   const k = intro ? ease.out(x) : ease.inOut(x);
   const hump = Math.sin(Math.PI * k);
   const span = Math.hypot(B.t[0] - A.t[0], B.t[2] - A.t[2]);
@@ -134,10 +137,14 @@ const CLOUD_GLSL = `uniform float uCloudPhase; uniform vec3 uSunDir; uniform flo
     vec2 P = wp.xz - uSunDir.xz / max(uSunDir.y, 0.15) * (90.0 - wp.y);
     vec2 drift = vec2(14.0, 5.0);
     float u = uCloudPhase;
+    #ifdef CLOUD_LIVE
+    float c = cFbm((P - drift * u) / 58.0); // live: time runs on (u unbounded), no loop to close, one evaluation
+    #else
     float c = mix(cFbm((P - drift * u) / 58.0), cFbm((P - drift * (u - 1.0)) / 58.0), u);
+    #endif
     return 1.0 - uCloudK * smoothstep(0.47, 0.66, c);
   }`;
-function addCloudShadows(root, uniforms) {
+function addCloudShadows(root, uniforms, live = false) {
   const done = new Set();
   root.traverse((o) => {
     for (const m of o.material ? [].concat(o.material) : []) {
@@ -147,24 +154,27 @@ function addCloudShadows(root, uniforms) {
       m.onBeforeCompile = (sh, r) => {
         prev.call(m, sh, r);
         Object.assign(sh.uniforms, uniforms);
-        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + CLOUD_GLSL)
+        sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\n' + (live ? '#define CLOUD_LIVE\n' : '') + CLOUD_GLSL)
           .replace('#include <lights_fragment_end>', '#include <lights_fragment_end>\n{ float cs = cloudShade(); reflectedLight.directDiffuse *= cs; reflectedLight.directSpecular *= cs; }');
       };
-      m.customProgramCacheKey = () => prevKey + '|clouds';
+      m.customProgramCacheKey = () => prevKey + (live ? '|cloudsL' : '|clouds');
     }
   });
 }
 
-export async function createWorld({ width, height: H, variant = 'desktop', canvas, quality = 'film', look = 'day' }) {
+// live: { tier: 'high' | 'mid' | 'low', dpr, sky } runs the same world in the page (world/live.js): no GTAO or depth of
+// field, a smaller shadow map, the mirror pass only on 'high' at a third of the size, fewer trees on 'low'.
+export async function createWorld({ width, height: H, variant = 'desktop', canvas, quality = 'film', look = 'day', live = null }) {
   const LK = LOOKS[look] || LOOKS.day;
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: true, powerPreference: 'high-performance', alpha: true });
-  renderer.setPixelRatio(1);
+  const tier = live?.tier;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, preserveDrawingBuffer: !live, powerPreference: 'high-performance', alpha: !live });
+  renderer.setPixelRatio(live ? live.dpr : 1);
   renderer.setSize(width, H, false);
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = LK.exposure;
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = true;
-  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  renderer.shadowMap.type = live && tier !== 'high' ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap; // PCF: fewer taps per pixel
 
   const scene = new THREE.Scene();
   const sunDir = new THREE.Vector3(...LK.sun).normalize();
@@ -173,7 +183,7 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   // the real sky, as backdrop, light and reflections: Poly Haven "kloofendal_48d_partly_cloudy_puresky" (CC0).
   // Its sun disc is clipped (the directional light is the sun), the sky is turned so its sun stands where ours
   // does, and the haze takes the colour of its horizon, so far water and land melt into it
-  const hdr = await new RGBELoader().loadAsync(`/world/assets/polyhaven/${LK.sky}`);
+  const hdr = await new RGBELoader().loadAsync(live?.sky || `/world/assets/polyhaven/${LK.sky}`);
   hdr.mapping = THREE.EquirectangularReflectionMapping;
   const sky = prepareSky(hdr);
   const turn = sky.sunAz - Math.atan2(sunDir.z, sunDir.x);
@@ -187,14 +197,17 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   scene.environmentIntensity = LK.env;
   const sun = new THREE.DirectionalLight(LK.sunColor, LK.sunI);
   sun.castShadow = true;
-  sun.shadow.mapSize.set(4096, 4096);
+  const SHADOW = live ? (tier === 'high' ? 2048 : 1024) : 4096;
+  sun.shadow.mapSize.set(SHADOW, SHADOW);
   sun.shadow.bias = -0.0004; sun.shadow.normalBias = 0.04; sun.shadow.radius = 3;
   scene.add(sun, sun.target);
 
+  Q.live = !!live; Q.tier = tier || 'high';
   await loadModels();
+  if (live) bakeTreeImpostors(renderer, treeModels);
   const terrain = buildTerrain(); scene.add(terrain);
   const sea = buildSea(); scene.add(sea);
-  const asphaltImg = await new THREE.ImageLoader().loadAsync('/world/assets/polyhaven/asphalt_02_diff_1k.jpg');
+  const asphaltImg = await new THREE.ImageLoader().loadAsync(groundUrl('asphalt_02_diff'));
   const relief = pbr('asphalt_02', 1);
   scene.add(buildRoad(roadK, { asphaltImg, relief }), buildRoad(roadA, { asphaltImg, relief }));
   // yard surfaces: concrete in the ports and at the showroom, asphalt in the Incheon lot
@@ -216,7 +229,7 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   const offRoad = (x, z, d) => { const info = nearestDist(x, z); return info > d; };
   const roadPts = roadK.getSpacedPoints(200).concat(roadA.getSpacedPoints(300));
   function nearestDist(x, z) { let b = 1e9; for (const p of roadPts) { const d = (p.x - x) ** 2 + (p.z - z) ** 2; if (d < b) b = d; } return Math.sqrt(b); }
-  for (let i = 0; i < 9000; i++) {
+  for (let i = 0, N = tier === 'low' ? 4500 : 9000; i < N; i++) {
     const x = (r() - 0.5) * MAP.w * 0.96, z = (r() - 0.5) * MAP.d * 0.96;
     const y = height(x, z);
     if (y < 1.0 || near(x, z, 1) || !offRoad(x, z, 2.6)) continue;
@@ -266,18 +279,19 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   });
   setShips(sea, ships);
   const cloudU = { uCloudPhase: { value: 0 }, uSunDir: { value: sunDir }, uCloudK: { value: LK.clouds }, uCamWorld: { value: new THREE.Matrix4() } };
-  addCloudShadows(scene, cloudU);
+  addCloudShadows(scene, cloudU, !!live);
   const poses = posesFor(variant, stations);
   const ov = overview(variant);
   const L = layout(stations.length);
 
   const camera = new THREE.PerspectiveCamera(24, width / H, 0.5, 2000);
   camera.layers.enable(K.TREE_LAYER); sun.shadow.camera.layers.enable(K.TREE_LAYER); // trees: seen and shadowed, not mirrored in the sea
-  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(width, H, { type: THREE.HalfFloatType, samples: quality === 'draft' ? 0 : 4 }));
-  composer.setPixelRatio(1); composer.setSize(width, H);
+  const MSAA = live ? (tier === 'low' ? 0 : 2) : quality === 'draft' ? 0 : 4;
+  const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(width, H, { type: THREE.HalfFloatType, samples: MSAA }));
+  composer.setPixelRatio(live ? live.dpr : 1); composer.setSize(width, H);
   composer.addPass(new RenderPass(scene, camera));
-  let gtao = null;
-  if (quality !== 'draft') {
+  let gtao = null, bokeh = null;
+  if (quality !== 'draft' && !live) {
     gtao = new GTAOPass(scene, camera, width, H);
     gtao.output = GTAOPass.OUTPUT.Default;
     gtao.blendIntensity = 0.85;
@@ -285,29 +299,31 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
     gtao.updatePdMaterial({ lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: 6, rings: 2, samples: 16 });
     composer.addPass(gtao);
   }
-  const bokeh = new BokehPass(scene, camera, { focus: 60, aperture: 0.00018, maxblur: 0.0055 });
-  composer.addPass(bokeh);
+  if (!live) { bokeh = new BokehPass(scene, camera, { focus: 60, aperture: 0.00018, maxblur: 0.0055 }); composer.addPass(bokeh); }
   composer.addPass(new OutputPass());
   const grade = new ShaderPass(GradeShader);
   grade.uniforms.uTone.value = LK.grade.tone; grade.uniforms.uSat.value = LK.grade.sat; grade.uniforms.uVig.value = LK.grade.vig;
   composer.addPass(grade);
 
+  let VW = width, VH = H; // the view's size (live pages resize)
   function applyPose(p) {
     const { pos, target } = camFromPose(p);
     camera.fov = p.fov; camera.position.copy(pos); camera.lookAt(target);
-    camera.setViewOffset(width, H, 0, H * p.shift, width, H); // lens shift: the subject sits above centre, clear of the copy band
+    camera.setViewOffset(VW, VH, 0, VH * p.shift, VW, VH); // lens shift: the subject sits above centre, clear of the copy band
     camera.updateProjectionMatrix();
     const dist = pos.distanceTo(target);
     scene.fog.near = dist * 1.5; scene.fog.far = dist * p.haze;
     camera.near = Math.max(0.5, dist * 0.08); camera.far = p.haze > 6 ? 6000 : dist * 6; // a low sea shot sees the water to the horizon camera.updateProjectionMatrix();
-    bokeh.uniforms.focus.value = dist;
-    bokeh.uniforms.aperture.value = 0.00018 * Math.min(1, 62 / dist);
-    bokeh.uniforms.nearClip.value = camera.near; bokeh.uniforms.farClip.value = camera.far;
+    if (bokeh) {
+      bokeh.uniforms.focus.value = dist;
+      bokeh.uniforms.aperture.value = 0.00018 * Math.min(1, 62 / dist);
+      bokeh.uniforms.nearClip.value = camera.near; bokeh.uniforms.farClip.value = camera.far;
+    }
     // shadow box follows the view
     const half = THREE.MathUtils.clamp(dist * 0.62, 34, 220);
     const sc = sun.shadow.camera;
     sc.left = -half; sc.right = half; sc.top = half; sc.bottom = -half; sc.near = 1; sc.far = half * 6; sc.updateProjectionMatrix();
-    const texel = (2 * half) / 4096;
+    const texel = (2 * half) / SHADOW;
     const tt = target.clone(); tt.x = Math.round(tt.x / texel) * texel; tt.z = Math.round(tt.z / texel) * texel;
     sun.target.position.copy(tt); sun.position.copy(tt).addScaledVector(sunDir, half * 3);
     sun.target.updateMatrixWorld();
@@ -349,12 +365,14 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   // Planar reflection: the scene above the water, from the camera mirrored in the sea plane (built the way three's
   // Reflector does it: mirrored position, target and up, so no handedness flip), into a half-size target the sea samples
   const WATER = 0.02;
-  const reflRT = new THREE.WebGLRenderTarget(Math.round(width / 2), Math.round(H / 2), { type: THREE.HalfFloatType, samples: quality === 'draft' ? 0 : 4 });
+  const REFL = live ? (tier === 'high' ? 1 / 3 : 0) : 1 / 2; // live mid/low: the sea reflects the sky probe only
+  const reflSize = () => [Math.max(2, Math.round(VW * (live?.dpr || 1) * REFL)), Math.max(2, Math.round(VH * (live?.dpr || 1) * REFL))];
+  const reflRT = new THREE.WebGLRenderTarget(...reflSize(), { type: THREE.HalfFloatType, samples: live ? 0 : quality === 'draft' ? 0 : 4 });
   const mirror = new THREE.PerspectiveCamera();
   const clipWater = [new THREE.Plane(new THREE.Vector3(0, 1, 0), -WATER)];
   const bias = new THREE.Matrix4().set(0.5, 0, 0, 0.5, 0, 0.5, 0, 0.5, 0, 0, 0.5, 0.5, 0, 0, 0, 1);
   const su = sea.userData.uniforms;
-  su.uRefl.value = reflRT.texture; su.uReflOn.value = 1;
+  su.uRefl.value = reflRT.texture; su.uReflOn.value = REFL ? 1 : 0;
   const rot = new THREE.Matrix4(), aim = new THREE.Vector3(), up = new THREE.Vector3(), camPos = new THREE.Vector3();
   function renderReflection() {
     camera.updateMatrixWorld();
@@ -376,14 +394,31 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
     renderer.setRenderTarget(null); renderer.clippingPlanes = prevClip;
     sea.visible = true;
   }
-  function render() {
-    renderReflection();
-    renderer.shadowMap.autoUpdate = false; // the reflection pass just drew this frame's shadows
-    renderer.shadowMap.needsUpdate = false;
+  // shadows: false keeps last frame's shadow map (the live page's low tier redraws it every other frame)
+  function render({ shadows = true } = {}) {
+    renderer.shadowMap.autoUpdate = shadows;
+    if (REFL && su.uReflOn.value > 0.5) {
+      renderReflection();
+      renderer.shadowMap.autoUpdate = false; // the reflection pass just drew this frame's shadows
+      renderer.shadowMap.needsUpdate = false;
+    }
     cloudU.uCamWorld.value.copy(camera.matrixWorld);
     composer.render();
     renderer.shadowMap.autoUpdate = true;
   }
+  // live pages: a new size or pixel ratio (guarded: setSize to the same size reallocates the drawing buffer)
+  let sizeKey = `${width}x${H}@${live?.dpr || 1}`;
+  function resize(w, h, dpr = live?.dpr || 1) {
+    const key = `${w}x${h}@${dpr}`;
+    if (key === sizeKey) return;
+    sizeKey = key; VW = w; VH = h;
+    if (live) live.dpr = dpr;
+    renderer.setPixelRatio(dpr); renderer.setSize(w, h, false);
+    composer.setPixelRatio(dpr); composer.setSize(w, h);
+    if (REFL) reflRT.setSize(...reflSize());
+    camera.aspect = w / h;
+  }
 
-  return { renderer, scene, camera, composer, stations, layout: L, poses, setFrame, anchorsNow, render, applyPose, sun, look };
+  return { renderer, scene, camera, composer, stations, layout: L, poses, setFrame, anchorsNow, render, applyPose, sun, look,
+    resize, hemi, hdr, sky, turn, pmrem, cloudU, grade, sunDir, sea, LK, LOOKS, prepareSky, reflectionOn: (on) => { su.uReflOn.value = REFL && on ? 1 : 0; } };
 }

@@ -12,6 +12,8 @@ import { initLive } from './ui/live.js';
 import { initTracking } from './ui/track.js';
 import { initSearch } from './ui/search.js';
 import { initExtras } from './ui/extras.js';
+import { initFeel } from './ui/feel.js';
+import { initGarage } from './ui/garage.js';
 
 gsap.registerPlugin(ScrollTrigger);
 const lenis = new Lenis({ autoRaf: false, lerp: 0.12, wheelMultiplier: 0.9, smoothWheel: true });
@@ -32,5 +34,7 @@ initForms(app);
 initLive(app); // the admin's catalogue and contact details, when the API answers
 initSearch(app);
 initExtras(app);
+initGarage(app);
+initFeel(app);
 initHero(app).catch((e) => console.error('hero', e));
 window.__udha = app;

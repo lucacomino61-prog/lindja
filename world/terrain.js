@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { MAP, STATIONS, ROAD_K, ROAD_A, height, rectDist } from './geo.js';
 import { simplex2, smoothstep } from './noise.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
+import { groundUrl } from './quality.js';
 
 const fieldNoise = simplex2(101);
 const tone = (hex) => new THREE.Color(hex);
@@ -56,7 +57,7 @@ export function buildTerrain() {
   // smooth relief; on the plains, crisp farm parcels with hedgerows (Albania: wheat, green, stubble, ploughed, olive
   // groves; Korea: rice paddies), and everywhere on land the Poly Haven aerial photo "aerial_grass_rock" (CC0) as grain
   const m = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0 });
-  const detail = new THREE.TextureLoader().load('/world/assets/polyhaven/aerial_grass_rock_diff_2k.jpg', (t) => {
+  const detail = new THREE.TextureLoader().load(groundUrl('aerial_grass_rock_diff'), (t) => {
     // to luminance around mid grey, so it modulates the colour without tinting it
     const img = t.image, cv = document.createElement('canvas'); cv.width = img.width; cv.height = img.height;
     const g = cv.getContext('2d'); g.drawImage(img, 0, 0);
@@ -115,8 +116,10 @@ export function buildTerrain() {
 // (setShips), a waterline line, a bow wave and, for ships under way, a churned wake with Kelvin arms.
 const SEA_W = 560;
 const SEA_COL = { beach: tone('#86B9AC'), shallow: tone('#2A7D7E'), mid: tone('#145468'), deep: tone('#0A3550') };
-// wind waves: heading offset (rad), wavelength (model units), slope, cycles per loop
+// wind waves: heading offset (rad), wavelength (model units), slope, cycles per loop. The three long swells keep the
+// middle distance moving once the short waves fade out there (with only 4 left, their sum tiled into rows of dashes).
 const WAVES = [
+  [0.3, 19.0, 0.05, 1], [-0.65, 13.0, 0.055, 1], [1.1, 9.5, 0.06, 1],
   [0.0, 7.0, 0.075, 1], [0.55, 5.1, 0.07, 1], [-0.45, 3.7, 0.07, 1], [0.95, 2.9, 0.065, 1],
   [-0.85, 2.2, 0.065, 2], [0.25, 1.7, 0.06, 2], [-0.2, 1.3, 0.06, 2], [1.25, 1.0, 0.055, 2],
   [-1.1, 0.78, 0.05, 3], [0.65, 0.6, 0.05, 3], [-0.55, 0.47, 0.045, 3], [0.1, 0.37, 0.04, 4],
@@ -126,7 +129,7 @@ export const WAKE_SPEED = 12; // model units the water slips past a ship under w
 
 function seaUniforms() {
   return {
-    uPhase: { value: 0 },
+    uPhase: { value: 0 }, uChop: { value: 1 }, // uChop: wind-wave steepness (the live page roughens the sea in the squall)
     uShipA: { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }, // x, z, bow direction x, z
     uShipB: { value: Array.from({ length: 4 }, () => new THREE.Vector4()) }, // length, beam, under way (0/1), -
     uRefl: { value: null }, uReflMatrix: { value: new THREE.Matrix4() }, uReflOn: { value: 0 }, // planar reflection (world.js)
@@ -134,12 +137,16 @@ function seaUniforms() {
   };
 }
 function seaMaterial(uniforms, swell) {
-  const m = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.035, metalness: 0, envMapIntensity: 1 });
+  // a touch of roughness: a perfect mirror streaked the clouds across the whole sea (Luca: "the water doesn't look real")
+  const m = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.07, metalness: 0, envMapIntensity: 1 });
   if (swell) m.defines = { SWELL: '' };
+  // each wave's crest is bent by a fixed noise field (warp), so crests break up instead of running as straight parallel
+  // lines; only the shape is warped, never the timing, so the sea still closes on itself every PERIOD. A wave fades out
+  // before it is under ~14 px on screen: smaller ones read as rows of dashes in the middle distance.
   const waveCode = WAVES.map(([da, lam, s, cyc], i) => {
-    const k = (2 * Math.PI) / lam, a = WIND + da;
-    return `{ vec2 dir = vec2(${Math.cos(a).toFixed(5)}, ${Math.sin(a).toFixed(5)}); float ph = dot(dir, p) * ${k.toFixed(5)} - t * ${cyc.toFixed(1)} + ${(i * 1.7).toFixed(2)};
-      float fade = 1.0 - smoothstep(0.22, 0.55, fw / ${lam.toFixed(3)}); g += dir * (${s.toFixed(4)} * cos(ph) * fade); }`;
+    const k = (2 * Math.PI) / lam, a = WIND + da * 1.7; // a wider spread of headings: no one direction dominates
+    return `{ vec2 dir = vec2(${Math.cos(a).toFixed(5)}, ${Math.sin(a).toFixed(5)}); float ph = dot(dir, p) * ${k.toFixed(5)} + warp * ${(0.55 + (i % 4) * 0.3).toFixed(2)} - t * ${cyc.toFixed(1)} + ${(i * 1.7).toFixed(2)};
+      float fade = 1.0 - smoothstep(0.07, 0.28, fw / ${lam.toFixed(3)}); g += dir * (${(s * 0.8).toFixed(4)} * env.${'xyz'[i % 3]} * cos(ph) * fade); }`;
   }).join('\n');
   m.onBeforeCompile = (sh) => {
     Object.assign(sh.uniforms, uniforms);
@@ -163,7 +170,7 @@ function seaMaterial(uniforms, swell) {
         vRefl = uReflMatrix * vec4(vWPos, 1.0);`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
-        uniform float uPhase; uniform vec4 uShipA[4]; uniform vec4 uShipB[4];
+        uniform float uPhase; uniform float uChop; uniform vec4 uShipA[4]; uniform vec4 uShipB[4];
         uniform vec3 uBeach; uniform vec3 uShallow; uniform vec3 uMid; uniform vec3 uDeep;
         varying float vShore; varying float vDepth; varying float vSwell; varying vec3 vWPos;
         uniform sampler2D uRefl; uniform float uReflOn; varying vec4 vRefl; vec2 seaTilt;
@@ -227,12 +234,20 @@ function seaMaterial(uniforms, swell) {
           float t = uPhase * 6.2831853;
           float fw = length(fwidth(p));
           vec2 g = vec2(0.0);
+          float warp = (seaNoise(p * 0.17, 1e6) - 0.5) * 9.0 + (seaNoise(p * 0.47 + 7.3, 1e6) - 0.5) * 4.0 + (seaNoise(p * 1.3 + 2.1, 1e6) - 0.5) * 1.6;
+          // patches of calm and of chop, fixed in space (the timing stays loop-periodic): each third of the waves rises
+          // and falls on its own broad field, so no stretch of water repeats the next one
+          vec3 env = vec3(seaNoise(p * 0.045 + 3.1, 1e6), seaNoise(p * 0.06 + 11.7, 1e6), seaNoise(p * 0.08 + 23.3, 1e6));
+          env = 0.3 + 1.45 * env * env;
           ${waveCode}
-          g *= 1.0 - vShore * 0.6;
-          // the long swell the vertices carry, as an exact slope
+          g *= (1.0 - vShore * 0.6) * uChop;
+          // the long swell the vertices carry, as an exact slope; its three straight sines fade with distance like the wind
+          // waves (unfaded, they drew the parallel rows in the middle distance)
           float a = t;
-          g += vSwell * vec2(0.11 * 0.9 * cos(p.x * 0.9 + p.y * 0.35 + a) - 0.07 * 0.4 * cos(p.y * 1.3 - p.x * 0.4 - a) + 0.04 * 2.3 * cos(p.x * 2.3 + p.y * 1.9 + 2.0 * a),
-                            0.11 * 0.35 * cos(p.x * 0.9 + p.y * 0.35 + a) + 0.07 * 1.3 * cos(p.y * 1.3 - p.x * 0.4 - a) + 0.04 * 1.9 * cos(p.x * 2.3 + p.y * 1.9 + 2.0 * a));
+          float s1 = 0.11 * cos(p.x * 0.9 + p.y * 0.35 + a) * (1.0 - smoothstep(0.07, 0.28, fw / 6.5));
+          float s2 = 0.07 * cos(p.y * 1.3 - p.x * 0.4 - a) * (1.0 - smoothstep(0.07, 0.28, fw / 4.6));
+          float s3 = 0.04 * cos(p.x * 2.3 + p.y * 1.9 + 2.0 * a) * (1.0 - smoothstep(0.07, 0.28, fw / 2.1));
+          g += vSwell * vec2(0.9 * s1 - 0.4 * s2 + 2.3 * s3, 0.35 * s1 + 1.3 * s2 + 1.9 * s3);
           vec3 nW = normalize(vec3(-g.x, 1.0, -g.y));
           nW = normalize(mix(nW, vec3(0.0, 1.0, 0.0), seaFoam * 0.7));
           seaTilt = nW.xz;

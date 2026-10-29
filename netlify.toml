@@ -17,7 +17,7 @@
   port = 3830
   framework = "#custom"
   autoLaunch = false
-  # netlify dev watches dist: stop it before `npm run build`, or rewriting the 70 MB films crashes it (EBUSY)
+  # netlify dev watches dist: stop it before `npm run build`, or rewriting dist crashes it (EBUSY)
 
 [[headers]]
   for = "/*"
@@ -35,6 +35,17 @@
 
 [[headers]]
   for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+# the live 3D world's models and pictures (tools/live-models.mjs, tools/live-assets.mjs): a week, like the fonts
+[[headers]]
+  for = "/live/*"
+  [headers.values]
+    Cache-Control = "public, max-age=604800"
+
+[[headers]]
+  for = "/models/live/*"
   [headers.values]
     Cache-Control = "public, max-age=604800"
 

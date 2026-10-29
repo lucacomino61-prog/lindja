@@ -202,11 +202,15 @@ export function carCarrier({ ramp = 1, quayY = 0.6, deployed = true } = {}) {
     pivot.rotation.z = -ramp * drop;
     // wires from the hull above the door to the ramp's outer end
     const end = new THREE.Vector3(ramp * (hb + rampL * Math.cos(drop) * 0.75), sill - rampL * Math.sin(drop) * 0.75 + 0.1, 0);
+    const wires = [];
     for (const s of [-1, 1]) {
       const a = new THREE.Vector3(ramp * hb, sill + 2.2, s * 0.55), b = end.clone().setZ(s * 0.6), d = b.clone().sub(a);
       const w = m(new THREE.CylinderGeometry(0.012, 0.012, d.length(), 5), steel); w.position.copy(a).addScaledVector(d, 0.5); w.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize()); g.add(w);
+      wires.push(w);
     }
     g.userData.foot = new THREE.Vector3(ramp * (hb + rampL * Math.cos(drop)), quayY, 0);
+    // the live page folds the ramp up against the hull to sail (setRamp(0)) and lowers it at the next quay (setRamp(1))
+    g.userData.setRamp = (open) => { pivot.rotation.z = ramp * (-drop + (1 - open) * (Math.PI / 2 + drop)); pivot.visible = open > 0.02; wires.forEach((w) => { w.visible = open > 0.999; }); };
   }
   Object.assign(g.userData, { isShip: true, len: L, w: B, h: A, door: new THREE.Vector3(ramp * hb, sill, 0) });
   return shadowed(g);

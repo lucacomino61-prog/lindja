@@ -11,6 +11,16 @@ export default {
     accept: 'Prano matjen', decline: 'Jo, faleminderit', more: 'Politika e privatësisë', saved: { yes: 'Matja u aktivizua.', no: 'Matja është e çaktivizuar.' },
   },
   search: { kinds: { car: 'Makinë', section: 'Seksion', guide: 'Udhëzues', step: 'Hap' }, open: 'Hap kërkimin' },
+  dock: { label: 'Menuja e shpejtë', here: 'Ku je', top: 'Rruga', garage: 'Garazhi', compare: 'Krahaso', search: 'Kërko', order: 'Porosit' },
+  garage: {
+    title: 'Garazhi', lead: 'Makinat që ke ruajtur në këtë pajisje.', empty: 'Garazhi është bosh. Shtyp zemrën te një makinë që ta ruash këtu.',
+    ask: 'Pyet për këto makina', remove: 'Hiq', close: 'Mbyll', saved: 'U ruajt në garazh', removed: 'U hoq nga garazhi',
+  },
+  compare: {
+    title: 'Krahaso makinat', lead: 'Deri në tre makina krah për krah.', max: 'Mund të krahasosh deri në tre makina.', added: 'U shtua për krahasim', removed: 'U hoq nga krahasimi',
+    clear: 'Pastro krahasimin', close: 'Mbyll', need: 'Zgjidh të paktën dy makina për t’i krahasuar.',
+    rows: { price: 'Çmimi (shembull)', year: 'Viti', km: 'Kilometrat', fuel: 'Karburanti', gear: 'Kambio', body: 'Karroceria', where: 'Ku ndodhet' },
+  },
   skip: 'Kalo te përmbajtja',
   unset: 'vendoset nga kompania',
   proto: 'Prototip — LINDJA është kompani e shpikur',
@@ -34,10 +44,10 @@ export default {
     h1: 'Makina nga Koreja e Jugut, gati për rrugët shqiptare.',
     lead: 'LINDJA zgjedh, kontrollon dhe sjell nga Koreja Hyundai, Kia, Genesis dhe KGM, të reja dhe të përdorura. Zhdoganimin dhe kolaudimin i bëjmë ne.',
     hint: 'Lëviz poshtë për hapin tjetër',
-    skipMap: 'Kalo filmin',
+    skipMap: 'Kalo rrugën',
     stop: 'Ndalo lëvizjen', start: 'Rinis lëvizjen', golden: 'Ora e artë',
     stepsLabel: 'Rruga e makinës',
-    loading: 'Filmi po ngarkohet', loaderSkip: 'Kalo hyrjen',
+    loading: 'Bota 3D po ngarkohet', loaderSkip: 'Kalo hyrjen',
     open: 'Hap', closeCard: 'Mbyll kartën',
     ctaCars: 'Shiko makinat', ctaOrder: 'Porosit nga Koreja',
     steps: [
@@ -93,6 +103,7 @@ export default {
     priceLabel: 'Çmim shembull', drive: 'Rezervo test drive', ask: 'Pyet për këtë',
     count: (n) => `${n} makina`, empty: 'Asnjë makinë me këto filtra. Hiq një filtër ose porosite nga Koreja.', reset: 'Hiq filtrat',
     viewLabel: 'Pamja', list: 'Listë', grid: 'Rrjetë',
+    save: 'Ruaj në garazh', compare: 'Krahaso',
   },
   order: {
     h: 'Porosit nga Koreja',

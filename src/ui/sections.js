@@ -97,6 +97,7 @@ export function initSections(app) {
       range.max = range.defaultValue = String(priceCap(cars));
       if (atTop) range.value = range.max;
       apply();
+      document.dispatchEvent(new Event('lindja:cars')); // the garage and compare re-read the cards
     };
     // grid / list, remembered per visitor; switching crossfades the list
     const btns = [...cat.querySelectorAll('.view-switch button')];

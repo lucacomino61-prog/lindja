@@ -5,6 +5,7 @@ import { mat, C, wordTexture, shadowed, containerBox } from './kit.js';
 import { rng } from './noise.js';
 import { height } from './geo.js';
 import * as M from './models.js';
+import { Q } from './quality.js';
 
 export const CAR_LENGTH = 0.92; // model units; about 0.52 wide. A truck is about 2.3
 export const CAR_COLORS = ['#F2F2EE', '#E4E2DA', '#1B1D21', '#A9AEB3', '#6C7177', '#2D4D78', '#9E2A2B', '#F2F2EE', '#1B1D21', '#A9AEB3', '#4D6A57', '#D9CFBF'];
@@ -16,7 +17,7 @@ export async function loadModels() {
 }
 
 // one car; `detail` 'lo' takes the light copy (far or many: train wagons, road traffic)
-export function car(type = 'sedan', color = CAR_COLORS[0], detail = 'hi') {
+export function car(type = 'sedan', color = CAR_COLORS[0], detail = Q.live ? 'lo' : 'hi') {
   const g = new THREE.Group();
   g.userData.type = type;
   for (const p of M.cars[type][detail]) {
@@ -34,7 +35,7 @@ export function carLot(slots) {
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), one = new THREE.Vector3(1, 1, 1), p = new THREE.Vector3(), e = new THREE.Euler();
   const fill = (im, list) => { list.forEach((s, i) => { p.set(s.x, s.y, s.z); q.setFromEuler(e.set(0, s.ry || 0, 0)); m4.compose(p, q, one); im.setMatrixAt(i, m4); }); im.castShadow = true; im.receiveShadow = true; g.add(im); };
   for (const [type, list] of byType) {
-    for (const part of M.cars[type].lo) {
+    for (const part of M.cars[type][Q.live ? 'xlo' : 'lo']) {
       if (!part.paint) { fill(new THREE.InstancedMesh(part.geo, part.material, list.length), list); continue; }
       const byColor = new Map();
       for (const s of list) { if (!byColor.has(s.color)) byColor.set(s.color, []); byColor.get(s.color).push(s); }

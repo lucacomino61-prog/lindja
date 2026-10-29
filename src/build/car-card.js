@@ -11,7 +11,8 @@ export function carCard(x, c, lang) {
   const badge = x.status === 'new' ? c.newBadge : x.status === 'used' ? c.usedBadge : c.inKorea;
   return `<li class="car" data-id="${esc(x.id)}" data-status="${x.status}" data-make="${esc(x.make)}" data-body="${x.body}" data-fuel="${x.fuel}" data-price="${x.price}" data-year="${x.year}">
     <article class="car__in" aria-labelledby="car-${esc(x.id)}">
-      <div class="car__img"><img src="/media/still-car-${esc(x.img)}.webp" alt="" width="1280" height="840" loading="lazy" decoding="async"><span class="car__badge car__badge--${x.status}">${esc(badge)}</span></div>
+      <div class="car__img"><img src="/media/still-car-${esc(x.img)}.webp" alt="" width="1280" height="840" loading="lazy" decoding="async"><span class="car__badge car__badge--${x.status}">${esc(badge)}</span>
+        <span class="car__tools"><button type="button" class="car__save" data-save="${esc(x.id)}" aria-pressed="false" aria-label="${esc(c.save)}: ${esc(`${x.make} ${x.model}`)}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10Z"/></svg></button><button type="button" class="car__cmp" data-compare="${esc(x.id)}" aria-pressed="false" aria-label="${esc(c.compare)}: ${esc(`${x.make} ${x.model}`)}">${esc(c.compare)}</button></span></div>
       <h3 class="car__name" id="car-${esc(x.id)}"><span class="car__make">${esc(x.make)}</span> ${esc(x.model)}</h3>
       <p class="car__spec mono"><span>${x.year}</span>${x.km ? `<span>${kmf(x.km, lang)} ${esc(c.km)}</span>` : ''}<span>${esc(c.fuels[x.fuel])}</span><span>${esc(c.gear[x.gear])}</span></p>
       <p class="car__price"><span class="car__amount tabular">${euro(x.price, lang)}</span><span class="car__plabel">${esc(c.priceLabel)}</span></p>

@@ -1,6 +1,7 @@
 // Poly Haven PBR texture sets (CC0) for the offline render: colour, normal (GL) and roughness maps.
 // `grey` turns the colour map to soft-contrast luminance (Poly Haven's concrete is beige and grainy; port aprons are grey).
 import * as THREE from 'three';
+import { groundUrl } from './quality.js';
 const loader = new THREE.TextureLoader();
 const cache = new Map();
 function toGrey(t) {
@@ -19,7 +20,7 @@ export function pbr(name, normalScale = 1, repeat = [1, 1], { grey = false } = {
   const key = name + repeat.join('x') + (grey ? 'g' : '');
   if (cache.has(key)) return cache.get(key);
   const tex = (m, srgb) => {
-    const t = loader.load(`/world/assets/polyhaven/${name}_${m}_1k.jpg`, srgb && grey ? toGrey : undefined);
+    const t = loader.load(groundUrl(`${name}_${m}`), srgb && grey ? toGrey : undefined);
     t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(...repeat); t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace;
     return t;
   };

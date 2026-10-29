@@ -209,7 +209,9 @@ function incheon() {
   const ship = V.containerShip({ len: 34 });
   ship.position.set(st.quay - ship.userData.w / 2 - 0.4, 0, 16); ship.rotation.y = Math.PI; g.add(ship);
   const roro = V.carCarrier({ ramp: 1, quayY: y }); roro.position.set(st.quay - roro.userData.w / 2 - 0.4, 0, 54); g.add(roro);
-  for (const [sz, bz] of [[2, -2], [8, 6], [24, 26], [30, 34], [40, 38], [46, 44], [62, 64], [68, 70]]) g.add(P.mooringLine(new THREE.Vector3(st.quay - 0.6, 1.1, sz), new THREE.Vector3(st.quay + 0.6, y + 0.2, bz), 0.4));
+  // the car carrier's own lines and its loading queue live in groups the live page hides while she is at sea
+  const moorG = new THREE.Group(), loadG = new THREE.Group(); g.add(moorG, loadG);
+  for (const [sz, bz] of [[2, -2], [8, 6], [24, 26], [30, 34], [40, 38], [46, 44], [62, 64], [68, 70]]) (sz > 36 ? moorG : g).add(P.mooringLine(new THREE.Vector3(st.quay - 0.6, 1.1, sz), new THREE.Vector3(st.quay + 0.6, y + 0.2, bz), 0.4));
   const slots = [];
   for (const x0 of [227.2, 229.8, 232.4]) for (let j = 0; j < 40; j++) { if ((j * 3 + Math.round(x0)) % 9 < 1) continue; slots.push({ x: x0, y, z: 2 + j * 1.0, ry: 0, type: ['suv', 'sedan', 'ev', 'hatch', 'suv'][(j + Math.round(x0)) % 5], color: V.CAR_COLORS[(j * 7 + Math.round(x0)) % V.CAR_COLORS.length] }); }
   g.add(V.carLot(slots));
@@ -226,7 +228,7 @@ function incheon() {
   const Lk = roadK.getLength(), road = [];
   for (let s = 0; s <= Lk - 2; s += 4) { const p = onRoad(roadK, s, FAST); road.push([p.x, p.y, p.z]); }
   const aboard = path3([...road, [225.8, y + 0.07, 47.6], [227.3, y + 0.07, 50.2], [228.3, y + 0.07, 52.8], [227.4, y + 0.07, foot.z], [foot.x, foot.y + 0.05, foot.z], [door.x, door.y + 0.05, door.z], [door.x - 1.8, door.y + 0.05, door.z]]);
-  const loading = MIX.map(([t, c], k) => chain3(g, aboard, { speed: 1, offset: k / 3, fastUntil: Lk - 6, factor: 3, make: () => V.car(t, c) }));
+  const loading = MIX.map(([t, c], k) => chain3(loadG, aboard, { speed: 1, offset: k / 3, fastUntil: Lk - 6, factor: 3, make: () => V.car(t, c) }));
   const term = K.shed({ w: 10, d: 6, h: 2.2, color: K.C.white, roof: '#3D6FA6' }); g.add(place(term, 258, 10, { y }));
   for (let z = 2; z <= 62; z += 12) g.add(place(P.lightTower(5), 235.2, z, { y }));
   const tug = pathRing(g, path3([[211, 0.15, 6], [204, 0.15, 12], [208, 0.15, 20], [213.4, 0.15, 12]], true), { count: 1, make: () => P.tugboat(), bob: 0.05 });
@@ -248,7 +250,7 @@ function incheon() {
     K.craneWork(cranes[1], tau, { mode: 'load', ship: shipX, truckY: 0.72 }); trucks(tau);
     gulls.forEach((b, i) => { b.position.set(214 + 6 * Math.cos(a + i * 3), 10 + i, 30 + 9 * Math.sin(a + i * 3)); b.rotation.y = -(a + i * 3); b.children.forEach((w, k) => { w.rotation.z = (k ? -1 : 1) * (0.25 + 0.35 * Math.sin(a * 6 + i)); }); });
   };
-  return { id: 'port', group: g, anchors, update };
+  return { id: 'port', group: g, anchors, update, live: { roro, loadG, moorG } };
 }
 
 // ---------------------------------------------------------------- 2 · at sea
@@ -281,7 +283,7 @@ function sea() {
       b.children.forEach((w, k) => { w.rotation.z = (k ? -1 : 1) * (0.25 + 0.35 * Math.sin(6 * a + i)); });
     });
   };
-  return { id: 'deti', group: g, anchors, update };
+  return { id: 'deti', group: g, anchors, update, live: { ship } };
 }
 
 // ---------------------------------------------------------------- 3 · Durrës: unloading, customs, inspection
@@ -293,12 +295,13 @@ function durres() {
   // south berth: the car carrier, cars driven off down its ramp; north berth: the container ship and the cranes
   const ship = V.containerShip({ len: 34 }); ship.position.set(st.quay + ship.userData.w / 2 + 0.4, 0, 38); g.add(ship);
   const roro = V.carCarrier({ ramp: -1, quayY: y }); roro.position.set(st.quay + roro.userData.w / 2 + 0.4, 0, 0); g.add(roro);
-  for (const [sz, bz] of [[24, 20], [30, 28], [46, 48], [52, 56], [-16, -18], [-10, -12], [10, 12], [16, 18]]) g.add(P.mooringLine(new THREE.Vector3(st.quay + 0.6, 1.1, sz), new THREE.Vector3(st.quay - 0.6, y + 0.2, bz), 0.4));
+  const moorG = new THREE.Group(), unloadG = new THREE.Group(); g.add(moorG, unloadG);
+  for (const [sz, bz] of [[24, 20], [30, 28], [46, 48], [52, 56], [-16, -18], [-10, -12], [10, 12], [16, 18]]) (sz < 20 ? moorG : g).add(P.mooringLine(new THREE.Vector3(st.quay + 0.6, 1.1, sz), new THREE.Vector3(st.quay - 0.6, y + 0.2, bz), 0.4));
   // imported cars drive out of the car deck, down the ramp, through customs and into the inspection shed
   roro.updateMatrixWorld(true);
   const foot = roro.localToWorld(roro.userData.foot.clone()), door = roro.localToWorld(roro.userData.door.clone());
   const ashore = path3([[door.x + 1.8, door.y + 0.05, 0], [door.x, door.y + 0.05, 0], [foot.x, foot.y + 0.05, 0], [-228.2, y + 0.03, -1.4], [-231.5, y + 0.03, -4.2], [-234, y + 0.02, -5], [-240, y + 0.02, -5], [-245, y + 0.02, -2], [-249, y + 0.02, 4], [-253, y + 0.02, 6.4]]);
-  const unloading = MIX.map(([t, c], k) => chain3(g, ashore, { speed: 1, offset: k / 3, make: () => V.car(t, c) }));
+  const unloading = MIX.map(([t, c], k) => chain3(unloadG, ashore, { speed: 1, offset: k / 3, make: () => V.car(t, c) }));
   const slots = [];
   for (const x0 of [-229.2, -231.8, -234.4]) for (let j = 0; j < 42; j++) { if ((j * 5 + Math.round(-x0)) % 11 < 1.5) continue; slots.push({ x: x0, y, z: 10 + j * 1.0, ry: Math.PI, type: ['suv', 'ev', 'sedan', 'suv', 'hatch'][(j + Math.round(-x0)) % 5], color: V.CAR_COLORS[(j * 5 + Math.round(-x0)) % V.CAR_COLORS.length] }); }
   g.add(V.carLot(slots));
@@ -310,16 +313,7 @@ function durres() {
   const shed = K.shed({ w: 8, d: 5, h: 2.2, color: K.C.white, roof: K.C.orange }); g.add(place(shed, -253, 6, { y }));
   const tex = K.wordTexture('KOLAUDIM', { bg: K.C.orange, fg: K.C.ink, w: 1024, h: 200, font: '800 150px "Big Shoulders Display"', tracking: 6 });
   const sg = new THREE.Mesh(new THREE.PlaneGeometry(4, 0.78), new THREE.MeshStandardMaterial({ map: tex, roughness: 0.7 })); sg.position.set(-253, y + 1.7, 8.53); g.add(sg);
-  // the port railway: a long string of car wagons shunting one wagon-length per loop
-  const track = new THREE.LineCurve3(new THREE.Vector3(-238.6, y, -60), new THREE.Vector3(-238.6, y, 90));
-  g.add(P.rails(track, 160));
-  const wagonLen = 2.5, nW = 44;
-  const wagons = [];
-  for (let i = 0; i < nW; i++) {
-    const w = i === nW - 1 ? P.locomotive() : P.flatWagon();
-    if (i < nW - 1) for (const z of [-0.55, 0.55]) { const c = V.car('sedan', '#F2F2EE', 'lo'); c.scale.setScalar(0.85); c.position.set(0, 0.33, z); w.add(c); }
-    g.add(w); wagons.push(w);
-  }
+  // (no port railway: Luca, 2026-10-29: its string of car wagons read as a conveyor belt across the quay)
   const sA = nearestS(roadA, -262, 45);
   const tr = convoy(g, roadA, { center: sA, half: 45, speed: 3.4, lane: SLOW, make: (i) => V.carTransporter(i + 7) });
   const traffic = convoy(g, roadA, { center: sA, half: 45, speed: 4.2, dir: -1, lane: SLOW, make: () => V.car('van', '#F2F2EE', 'lo') });
@@ -351,10 +345,9 @@ function durres() {
     ship.position.y = 0.03 * Math.sin(a);
     V.spinRadar(ship, ph * 2);
     K.craneWork(cr[0], tau, { mode: 'unload', ship: shipX, truckY: 0.72 }); trucks(tau);
-    wagons.forEach((w, i) => { w.position.set(-238.6, y + 0.02, 80 - i * wagonLen - ph * wagonLen); w.rotation.y = Math.PI; });
     flags.forEach((f, i) => P.wave(f, ph + i * 0.2));
   };
-  return { id: 'durres', group: g, anchors, update };
+  return { id: 'durres', group: g, anchors, update, live: { roro, unloadG, moorG } };
 }
 
 // ---------------------------------------------------------------- 4 · Tirana showroom
