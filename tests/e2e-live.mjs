@@ -24,7 +24,10 @@ async function open(browser, url, { phone = false, before } = {}) {
   p.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) log.push(m.text().slice(0, 200)); });
   p.on('pageerror', (e) => log.push('pageerror: ' + e.message));
   if (before) await before(p);
-  await p.goto(url, { waitUntil: 'load', timeout: 120000 });
+  // a live run over a slow line: retry a page that does not arrive (a timeout is the line, not the site)
+  for (let i = 0; ; i++) {
+    try { await p.goto(url, { waitUntil: 'load', timeout: 120000 }); break; } catch (e) { if (i >= 2 || !/TIMED_OUT|ERR_CONNECTION|Timeout/i.test(e.message)) throw e; console.log(`(retrying ${url}: ${e.message.split(' at ')[0]})`); await sleep(3000); }
+  }
   return { p, ctx, log };
 }
 // scroll to a place on the route (u 0..4), inverting the hero's dwell mapping
