@@ -489,4 +489,9 @@ async function onSubmit(e) {
   }
 }
 
+// Netlify's free-plan badge (an iframe it injects bottom right) would sit on the drawer's save button, the toast and
+// the last row: when it appears, flag the page so the layout makes room for it (the badge itself is left alone)
+const flagBadge = () => { if (document.getElementById('nl-badge-frame')) { document.documentElement.setAttribute('data-has-host-badge', ''); return true; } return false; };
+if (!flagBadge()) { const mo = new MutationObserver(() => { if (flagBadge()) mo.disconnect(); }); mo.observe(document.documentElement, { childList: true, subtree: true }); setTimeout(() => mo.disconnect(), 15000); }
+
 boot();

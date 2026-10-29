@@ -249,3 +249,9 @@ dialog::backdrop { background: rgb(16 20 24 / 0.4); }
   .pics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (prefers-reduced-motion: reduce) { .boot .wordmark, .sk { animation: none; } }
+
+/* the host's badge is bottom right (about 180 × 44 plus 16px margins): keep our controls out from under it */
+[data-has-host-badge] .drawer__foot { padding-bottom: 72px; }
+[data-has-host-badge] .view { padding-bottom: 140px; }
+[data-has-host-badge] .toast { top: calc(var(--bar-h) + 12px); bottom: auto; }
+[data-has-host-badge] .toast:not(.is-on) { translate: 0 -12px; }
