@@ -74,7 +74,7 @@ export async function initHero(app) {
     const dir = k > Number(old.dataset.k || 0) ? 1 : -1;
     nu.dataset.k = k;
     gsap.fromTo(nu, { yPercent: 105 * dir }, { yPercent: 0, duration: 0.9, ease: 'expo.out' });
-    gsap.to(old, { yPercent: -105 * dir, duration: 0.7, ease: 'expo.out', onComplete: () => { old.remove(); nu.style.position = ''; } });
+    gsap.to(old, { yPercent: -105 * dir, duration: 0.7, ease: 'expo.out', overwrite: 'auto', onComplete: () => { old.remove(); nu.style.position = ''; } });
   }
 
   // ---------- hotspots ----------
@@ -82,23 +82,37 @@ export async function initHero(app) {
   function placeSpot(el, p) {
     if (!p) { el.classList.remove('is-on'); return; }
     const x = p[0] * W(), y = p[1] * H();
-    el.style.setProperty('--x', `${x.toFixed(1)}px`);
-    el.style.setProperty('--y', `${y.toFixed(1)}px`);
+    // on the button and the card, not on .spot: a transformed .spot would trap the phone's fixed card
+    const tf = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    if (el._tf !== tf) { el._tf = tf; el._btn.style.transform = tf; el._card.style.transform = tf; }
     el.classList.toggle('spot--left', p[0] > 0.6);
     el.classList.toggle('spot--up', p[1] > 0.55);
   }
   const band = hero.querySelector('.hero__band'), rail = hero.querySelector('.hero__rail');
-  let bandY = 0.6, railBox = null, topY = 0.14;
+  const hint = hero.querySelector('.hero__hint'), proto = hero.querySelector('.proto-badge');
+  let bandY = 0.6, railBox = null, topY = 0.14, avoid = [];
   const measureChrome = () => {
     const hr = hero.getBoundingClientRect(), br = band.getBoundingClientRect(), rr = rail.getBoundingClientRect();
     bandY = (br.top - hr.top) / hr.height - 0.04;
     railBox = { x0: (rr.left - hr.left) / hr.width - 0.12, y1: (rr.bottom - hr.top) / hr.height + 0.06 };
     topY = innerWidth <= 991 ? (rr.bottom - hr.top) / hr.height + 0.03 : 0.14;
+    // the scroll hint and the prototype badge (where shown) keep hotspots off them too
+    avoid = [hint, proto].map((n) => {
+      const r = n.getBoundingClientRect();
+      return r.width ? { n, x0: (r.left - hr.left) / hr.width, x1: (r.right - hr.left) / hr.width, y0: (r.top - hr.top) / hr.height, y1: (r.bottom - hr.top) / hr.height } : null;
+    }).filter(Boolean);
   };
   measureChrome();
   addEventListener('resize', measureChrome);
   const bandTop = () => bandY;
   const inRail = (p) => railBox && p[0] > railBox.x0 && p[1] < railBox.y1 && innerWidth > 991;
+  const hintShown = () => !document.documentElement.hasAttribute('data-scrolled') && hero.dataset.step !== '4' && motionOn();
+  const blocked = (p) => avoid.some((o) => {
+    if (o.n === hint && !hintShown()) return false;
+    // a label runs ~250px to the right of its dot (to the left on the right-hand side)
+    const lab = 250 / W(), pad = 30 / W(), padY = 30 / H(), toLeft = p[0] > 0.6;
+    return p[0] > o.x0 - (toLeft ? pad : lab) && p[0] < o.x1 + (toLeft ? lab : pad) && p[1] > o.y0 - padY && p[1] < o.y1 + padY;
+  });
   function updateSpots() {
     const live = playing && motionOn();
     for (const el of spots) {
@@ -122,7 +136,7 @@ export async function initHero(app) {
         p = film.stillSpot(id, k); show = !!p;
       }
       // keep hotspots off the copy band, the step rail and the header
-      const inside = p && p[0] > 0.03 && p[0] < 0.97 && p[1] > topY && p[1] < bandTop() && !inRail(p);
+      const inside = p && p[0] * W() > 30 && p[0] * W() < W() - 30 && p[1] > topY && p[1] < bandTop() && !inRail(p) && !blocked(p);
       if (show && inside) { placeSpot(el, p); el.classList.add('is-on'); }
       else if (!el.querySelector('.spot__btn[aria-expanded="true"]')) el.classList.remove('is-on');
     }
@@ -138,6 +152,7 @@ export async function initHero(app) {
   for (const el of spots) {
     const btn = el.querySelector('.spot__btn');
     const card = el.querySelector('.spot__card');
+    el._btn = btn; el._card = card;
     btn.addEventListener('click', () => {
       const open = btn.getAttribute('aria-expanded') === 'true';
       closeCards(btn);
@@ -204,7 +219,17 @@ export async function initHero(app) {
   // ---------- loading ----------
   const target = (data.segments.find((s) => s.name === 'idle0').start + 144) / data.fps;
   let loaderDone = false;
-  function hideLoader() { if (loaderDone) return; loaderDone = true; loader.classList.add('is-done'); }
+  function hideLoader() { if (loaderDone) return; loaderDone = true; loader.classList.add('is-done'); intro(); }
+  // as the loader lifts: the place word rises, the headline and lead follow; buttons only fade (never move under a tap)
+  function intro() {
+    if (!motionOn()) return;
+    const lift = [hero.querySelector('.hero__place'), hero.querySelector('#hero-h1'), hero.querySelector('.hero__lead')];
+    const taps = hero.querySelectorAll('.cta-row .btn, .hero__rail li, .rail__tools > :not([hidden])');
+    gsap.timeline({ delay: 0.15 })
+      .fromTo(wordBox.querySelector('.hero__word-in'), { yPercent: 105 }, { yPercent: 0, duration: 1.1, ease: 'expo.out' }, 0)
+      .fromTo(lift, { autoAlpha: 0, y: 18 }, { autoAlpha: 1, y: 0, duration: 0.9, ease: 'expo.out', stagger: 0.07, clearProps: 'transform' }, 0.1)
+      .fromTo(taps, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out', stagger: 0.035, clearProps: 'opacity' }, 0.3);
+  }
   async function startFilm(skipIntro) {
     if (playing || !motionOn()) return;
     playing = true;

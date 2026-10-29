@@ -6,13 +6,14 @@ export default {
     description: 'Prototype for an Albanian importer of Korean cars: Hyundai, Kia, Genesis and KGM, from Incheon to the Tirana showroom. The company and prices are invented.',
   },
   skip: 'Skip to content',
+  unset: 'set by the company',
   proto: 'Prototype — LINDJA is an invented company',
   example: 'Example',
   nav: {
     label: 'Main navigation',
     cars: 'Cars', import: 'Import', company: 'Showrooms', contact: 'Contact',
     drive: 'Book a test drive', order: 'Order from Korea', menu: 'Menu', close: 'Close', language: 'Language',
-    search: 'Search this site', searchPh: 'e.g. Tucson, hybrid, Durrës…',
+    search: 'Search this site', searchPh: 'e.g. Tucson, hybrid, Durrës…', searchNone: 'Nothing found for “{q}”. Try a model or a town.',
     carsCols: [
       { h: 'In the showroom', links: [['All cars', '#makinat'], ['New', '#makinat?t=new'], ['Used', '#makinat?t=used'], ['Electric and hybrid', '#makinat?f=ev']] },
       { h: 'Makes', links: [['Hyundai', '#makinat?m=Hyundai'], ['Kia', '#makinat?m=Kia'], ['Genesis', '#makinat?m=Genesis'], ['KGM', '#makinat?m=KGM']] },
@@ -25,7 +26,7 @@ export default {
   },
   hero: {
     h1: 'Cars from South Korea, ready for Albanian roads.',
-    lead: 'LINDJA chooses, checks and brings Hyundai, Kia, Genesis and KGM from Korea, new and used, with customs and inspection done.',
+    lead: 'LINDJA chooses, checks and brings Hyundai, Kia, Genesis and KGM from Korea, new and used. We handle customs and the technical inspection.',
     hint: 'Scroll for the next step',
     skipMap: 'Skip the film',
     stop: 'Stop motion', start: 'Resume motion', golden: 'Golden hour',
@@ -48,19 +49,19 @@ export default {
     'port-ship': { title: 'Two ways aboard', tags: ['Car carrier', 'Container'], text: 'Cars drive aboard a car carrier, or travel strapped down inside a 40-foot container.', more: 'How we import', to: 'importi' },
     'port-ramp': { title: 'Driven aboard', tags: ['Side ramp', 'Lashed'], text: 'Each car is driven up the ramp into the car decks and lashed down for the crossing.', more: 'How we import', to: 'importi' },
     'port-quay': { title: 'Waiting to sail', tags: ['Incheon'], text: 'Checked cars wait in the port of Incheon until the ship is ready.', more: 'How we import', to: 'importi' },
-    'deti-ship': { title: 'Follow the voyage', tags: ['Tracking'], text: 'We tell you when the ship sails, when it passes the main stops and when it reaches Durrës.', more: 'Order from Korea', to: 'porosi' },
+    'deti-ship': { title: 'Follow the voyage', tags: ['Tracking'], text: 'We tell you when the ship sails, when it passes the main ports on the way and when it reaches Durrës.', more: 'Order from Korea', to: 'porosi' },
     'deti-isle': { title: 'The sea route', tags: ['Korea → Durrës'], text: 'The ship sails from Korea to the Mediterranean and arrives in the port of Durrës.', more: 'How we import', to: 'importi' },
     'durres-ship': { title: 'Arrival in Durrës', tags: ['Unloading'], text: 'Cars drive off the ship on their own wheels; containers are lifted ashore and opened in the port.', more: 'How we import', to: 'importi' },
-    'durres-customs': { title: 'Customs', tags: ['Duty', 'Excise'], text: 'Declarations, customs duty and excise are worked out and paid before the car leaves the port.', more: 'Guides', to: 'udhezues' },
+    'durres-customs': { title: 'Customs', tags: ['Declaration', 'VAT'], text: 'We file the customs declaration and pay the import taxes, VAT included, before the car leaves the port.', more: 'Guides', to: 'udhezues' },
     'durres-kolaudim': { title: 'Technical inspection', tags: ['Kolaudim'], text: 'The inspection and the registration papers are done before the car comes to the showroom.', more: 'Guides', to: 'udhezues' },
-    'salloni-room': { title: 'The Tirana showroom', tags: ['New', 'Used'], text: 'See the cars up close, with an adviser who has known them from Korea to here.', more: 'Showrooms', to: 'sallonet' },
-    'salloni-lot': { title: 'Ready to drive', tags: ['Registered'], text: 'Cars on the lot are cleared, inspected and ready for plates.', more: 'See the cars', to: 'makinat' },
+    'salloni-room': { title: 'The Tirana showroom', tags: ['New', 'Used'], text: 'See the cars up close, with an adviser who has followed them since Korea.', more: 'Showrooms', to: 'sallonet' },
+    'salloni-lot': { title: 'Ready to drive', tags: ['Cleared', 'Inspected'], text: 'Cars on the lot are cleared, inspected and ready for plates.', more: 'See the cars', to: 'makinat' },
     'salloni-drive': { title: 'Test drive', tags: ['By booking'], text: 'Book a slot and try the car on the track and in town.', more: 'Book a test drive', to: 'test-drive' },
     'salloni-service': { title: 'Service', tags: ['Parts', 'Maintenance'], text: 'Service and parts for Korean makes, after you buy too.', more: 'Showrooms', to: 'sallonet' },
   },
   manifest: {
     lines: ['From Incheon', 'to Tirana.'],
-    text: 'A car passes five steps before it gets Albanian plates: selection, loading, the sea, customs and the showroom. At LINDJA the same team follows it, with the same adviser.',
+    text: 'A car passes five steps before it gets Albanian plates: selection, loading, the sea, customs and the showroom. At LINDJA one team follows it the whole way, with one adviser.',
   },
   route: {
     h: 'How we import',
@@ -69,13 +70,13 @@ export default {
       { place: 'Selection', text: 'We find the car in Korea to your model and budget, check it, and send you photos and a report.' },
       { place: 'Loading', text: 'Once you approve, the car is deregistered for export and driven aboard a car carrier or loaded into a container.' },
       { place: 'At sea', text: 'The ship sails for Durrës; we let you know at every important step.' },
-      { place: 'Customs', text: 'In Durrës we handle clearance, excise and the technical inspection.' },
+      { place: 'Customs', text: 'In Durrës we clear customs, pay the import taxes and get the technical inspection done.' },
       { place: 'Showroom', text: 'The car is cleaned, checked once more and handed over in Tirana.' },
     ],
   },
   catalogue: {
     h: 'The cars',
-    text: 'Cars in the showroom and on their way from Korea. Prices are examples for the prototype.',
+    text: 'Cars in the showroom and on their way from Korea. Prices are examples for the prototype; photos show the body type, not the exact model.',
     all: 'All', fresh: 'New', used: 'Used',
     make: 'Make', body: 'Body', fuel: 'Fuel', price: 'Price up to', sort: 'Sort', any: 'Any',
     sorts: [['price-asc', 'Price: low to high'], ['price-desc', 'Price: high to low'], ['year-desc', 'Year: newest first']],
@@ -90,7 +91,6 @@ export default {
   order: {
     h: 'Order from Korea',
     text: 'Not in the showroom? Tell us the model and budget; we search in Korea and send you what we find, with photos and a report.',
-    note: 'Prototype: the request is not sent anywhere.',
   },
   finance: {
     h: 'Payment calculator',
@@ -100,10 +100,10 @@ export default {
     errors: { price: 'Enter the price of the car.', down: 'The down payment must be less than the price.', rate: 'Enter a rate from 0 to 30.' },
   },
   showrooms: {
-    h: 'Showrooms',
+    h: 'Showrooms', addrLabel: 'Address', hoursLabel: 'Opening hours',
     items: [
-      { city: 'Tirana', role: 'Main showroom, test drives and service', addr: 'Address: set by the company', hours: 'Opening hours: set by the company' },
-      { city: 'Durrës', role: 'By the port: handovers and cars just arrived', addr: 'Address: set by the company', hours: 'Opening hours: set by the company' },
+      { city: 'Tirana', role: 'Main showroom, test drives and service' },
+      { city: 'Durrës', role: 'By the port: handovers and cars just arrived' },
     ],
   },
   drive: {
@@ -114,8 +114,9 @@ export default {
     date: 'Date', time: 'Time', times: ['10:00', '12:00', '15:00', '17:00'],
     name: 'Full name', email: 'Email', phone: 'Phone', notes: 'Notes (optional)', budget: 'Budget (€)', model: 'Model you want', yearFrom: 'Year from',
     next: 'Continue', prev: 'Back', send: 'Send booking', sendOrder: 'Send request', sending: 'Sending…',
-    errors: { car: 'Choose the car you want to drive.', date: 'Choose a date from tomorrow on.', name: 'Enter your name.', email: 'This email looks incomplete. Check the @ and the domain.', phone: 'Enter a phone number.', model: 'Enter the model you want.', budget: 'Enter your budget in euros.' },
-    done: 'Thank you. This is a prototype: the booking was not sent anywhere.', doneOrder: 'Thank you. This is a prototype: the request was not sent anywhere.', again: 'Fill in another',
+    errors: { car: 'Choose the car you want to drive.', date: 'Choose a date from tomorrow on.', name: 'Enter your name.', email: 'This email looks incomplete. Check the @ and the domain.', phone: 'Enter a phone number.', model: 'Enter the model you want.', budget: 'Enter your budget in euros.', yearFrom: 'Enter a year like 2020.', server: 'It didn’t send. Check your connection and try again.', rate: 'Too many requests from this device. Try again in an hour.', invalid: 'Some fields weren’t accepted. Check them and try again.' },
+    note: 'Prototype: your request is kept in the LINDJA admin for the demo only and deleted after 30 days. Nobody will contact you.',
+    done: 'Thank you. Your booking is saved. This is a prototype: nobody will call you.', doneOrder: 'Thank you. Your request is saved. This is a prototype: nobody will contact you.', again: 'Fill in another',
   },
   guides: {
     h: 'Short guides',
@@ -126,7 +127,7 @@ export default {
     ],
   },
   footer: {
-    contact: 'Contact', address: 'Address: set by the company', phone: 'Phone: set by the company', email: 'Email: set by the company',
+    contact: 'Contact', addressLabel: 'Address', phoneLabel: 'Phone', emailLabel: 'Email',
     cols: 'This site', legal: '© 2026 LINDJA. An invented company built as a prototype. Hyundai, Kia, Genesis and KGM belong to their owners; LINDJA does not represent them.',
     top: 'Back to top',
     credit: '3D models from Sketchfab (CC-BY 4.0): container ship by RM02; Hyundai Sonata by m3ika, i30 N by 007, Tucson by razor24, Ioniq 5 by andikapratamaw; Hyundai Xcient truck by asian3dmodel, car trailer by maregajavier; containers by Sebastian Webster and yxungsauce2; olive tree by CeDRI, cypress by ElectroNick, pine by evolveduk; tug by Mixmamo.studio; dock workers by Jungle Jim; forklift by Ricardo Sanchez. Skies and surfaces: Poly Haven (CC0). Relief: AWS Terrain Tiles (SRTM and other open sources).',

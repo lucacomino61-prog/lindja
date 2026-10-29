@@ -1,0 +1,64 @@
+/* tokens.css — fonts, colours, type, focus and buttons shared by the site (main.css) and the admin (src/admin/admin.css) */
+@import './base.css';
+
+/* ---------- fonts ---------- */
+@font-face { font-family: 'Big Shoulders'; src: url('/fonts/bigshoulders-latin.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+2000-206F, U+20AC, U+2122; }
+@font-face { font-family: 'Big Shoulders'; src: url('/fonts/bigshoulders-latin-ext.woff2') format('woff2'); font-weight: 100 900; font-display: swap; unicode-range: U+0100-024F, U+1E00-1EFF; }
+@font-face { font-family: 'Geist'; src: url('/fonts/geist.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: 'Geist Mono'; src: url('/fonts/geist-mono.woff2') format('woff2'); font-weight: 100 900; font-display: swap; }
+/* metric-matched fallbacks keep the poster words from jumping when the face arrives */
+@font-face { font-family: 'Big Shoulders Fallback'; src: local('Arial Narrow'), local('Arial'); size-adjust: 78%; ascent-override: 118%; }
+
+/* ---------- tokens ---------- */
+:root {
+  --limestone: #EEF0EC;
+  --stone-2: #E2E5DF;
+  --ink: #101418;
+  --signal: #FF4F12;
+  --ink-70: color-mix(in oklch, var(--ink) 72%, var(--limestone));
+  --ink-50: color-mix(in oklch, var(--ink) 55%, var(--limestone));
+  --rule: color-mix(in oklch, var(--ink) 16%, transparent);
+  --rule-strong: color-mix(in oklch, var(--ink) 34%, transparent);
+  --c-ink: var(--ink); --c-paper: var(--limestone); --c-focus: var(--ink); --c-line: var(--rule);
+  --f-display: 'Big Shoulders', 'Big Shoulders Fallback', 'Arial Narrow', sans-serif;
+  --f-text: 'Geist', ui-sans-serif, system-ui, sans-serif;
+  --f-mono: 'Geist Mono', ui-monospace, 'Cascadia Mono', monospace;
+  --pad: clamp(16px, 2.4vw, 36px);
+  --header-h: 60px;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-world: cubic-bezier(0.65, 0, 0.35, 1);
+  --shadow-card: 0 1px 2px rgb(16 20 24 / 0.08), 0 18px 40px -12px rgb(16 20 24 / 0.32);
+}
+
+html { background: var(--limestone); }
+body { font-family: var(--f-text); color: var(--ink); background: var(--limestone); font-size: var(--step-0); line-height: 1.5; overflow-x: clip; }
+::selection { background: var(--signal); color: var(--ink); }
+:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; box-shadow: 0 0 0 5px var(--signal); }
+.mono { font-family: var(--f-mono); font-size: 0.8125rem; letter-spacing: 0.02em; text-transform: uppercase; font-variant-numeric: tabular-nums; }
+a { color: inherit; text-underline-offset: 0.2em; text-decoration-thickness: 1px; }
+.i { width: 1.15em; height: 1.15em; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+.i--chev { width: 0.9em; height: 0.9em; transition: transform 200ms var(--ease-out); }
+.wordmark { height: 1em; width: auto; overflow: visible; }
+.wordmark text { font-family: var(--f-display); font-weight: 800; font-size: 44px; fill: currentColor; letter-spacing: -0.5px; }
+input, textarea { caret-color: var(--signal); }
+html { scrollbar-color: var(--ink-50) var(--stone-2); }
+[hidden] { display: none !important; } /* components set display (.btn, .catalogue__empty), which beat the UA's [hidden] */
+
+/* 0.98: an Ë on a second line clears the line above (its dots reach 0.95em over the baseline) */
+.poster { font-family: var(--f-display); font-weight: 800; text-transform: uppercase; line-height: 0.98; letter-spacing: -0.01em; }
+.poster--xl { font-size: clamp(5.5rem, 19vw, 21rem); }
+.poster--m { font-size: clamp(3.4rem, 9vw, 9.5rem); }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; gap: 0.6em; min-height: 48px; padding: 0 1.15em; border-radius: 3px; border: 0; font: 500 0.9375rem/1 var(--f-text); text-decoration: none; cursor: pointer; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), transform 120ms var(--ease-out); }
+.btn:active { transform: translateY(1px); }
+.btn .i { transition: transform 220ms var(--ease-out); }
+@media (hover: hover) { .btn:hover .i { transform: translateX(3px); } }
+.btn--signal { background: var(--signal); color: var(--ink); }
+.btn--signal:hover { background: color-mix(in oklch, var(--signal) 86%, var(--ink)); }
+.btn--ink { background: var(--ink); color: var(--limestone); }
+.btn--ink:hover { background: color-mix(in oklch, var(--ink) 82%, var(--signal)); }
+.btn--ghost { background: rgb(238 240 236 / 0.72); color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+.btn--ghost:hover { background: var(--limestone); }
+.btn--ghost-ink { background: transparent; color: var(--ink); box-shadow: inset 0 0 0 1px var(--rule-strong); }
+.btn--block { width: 100%; justify-content: space-between; }

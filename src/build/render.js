@@ -1,7 +1,9 @@
 // Server-side page template for LINDJA: every word and every car is in the HTML before any script runs.
+// The admin's live catalogue and contact details replace them in the browser when they differ (ui/live.js).
+import { esc, euro, carCard, driveOptions, priceCap } from './car-card.js';
+
 const jsonLt = String.fromCharCode(92) + 'u003c';
 const json = (v) => JSON.stringify(v).replace(/</g, jsonLt);
-const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 const icon = {
   arrow: '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-6-6 6 6-6 6"/></svg>',
@@ -25,8 +27,10 @@ const SCENES = [
   ['durres-ship', 'durres-customs', 'durres-kolaudim'],
   ['salloni-room', 'salloni-lot', 'salloni-drive'],
 ];
-const euro = (n, lang) => (lang === 'sq' ? `€ ${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, '.')}` : `€${String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ',')}`);
-const kmf = (n, lang) => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, lang === 'sq' ? '.' : ',');
+const SHOWROOM_IDS = ['tirana', 'durres'];
+// "Adresa: vendoset nga kompania" until the admin sets it; live.js swaps the value in
+const siteField = (key, label, unset) => `<span data-site="${key}" data-label="${esc(label)}">${esc(label)}: ${esc(unset)}</span>`;
+const honeypot = '<div class="hp" aria-hidden="true"><label>Website <input name="website" tabindex="-1" autocomplete="off"></label></div>';
 
 function langSwitch(t, all, cls = '') {
   return `<ul class="lang ${cls}" aria-label="${esc(t.nav.language)}">${all.map((l) => `<li><a href="${l.path}" hreflang="${l.lang}" lang="${l.lang}"${l.lang === t.lang ? ' aria-current="true"' : ''}><abbr title="${esc(l.label)}">${l.short}</abbr></a></li>`).join('')}</ul>`;
@@ -75,8 +79,9 @@ export function renderPage(t, all, cars) {
   </div>
 </header>
 <div class="mega-backdrop" data-menu-backdrop></div>
-<div class="mobile-menu" id="mobile-menu" hidden>
+<div class="mobile-menu" id="mobile-menu" tabindex="-1" aria-label="${esc(n.menu)}" hidden>
   <form class="mm-search" role="search" action="#"><label class="visually-hidden" for="mm-q">${esc(n.search)}</label><input id="mm-q" type="search" placeholder="${esc(n.searchPh)}" autocomplete="off"><button type="submit" aria-label="${esc(n.search)}">${icon.search}</button></form>
+  <p class="mm-search__note" aria-live="polite" data-none="${esc(n.searchNone)}"></p>
   <ul class="mm-list">
     ${[[n.cars, n.carsCols], [n.import, n.importCols], [n.company, n.companyCols]].map(([lbl, cols]) => `<li><details><summary>${esc(lbl)}${icon.chev}</summary>${cols.map((col) => `<p class="mm-h">${esc(col.h)}</p><ul>${col.links.map(([l, hh]) => `<li><a href="${hh}" data-close-menu>${esc(l)}</a></li>`).join('')}</ul>`).join('')}</details></li>`).join('')}
     <li><a class="mm-link" href="#test-drive" data-close-menu>${esc(n.drive)}</a></li>
@@ -148,21 +153,12 @@ export function renderPage(t, all, cars) {
 </section>`;
 
   const makes = [...new Set(cars.map((x) => x.make))];
-  const badge = (s) => (s === 'new' ? c.newBadge : s === 'used' ? c.usedBadge : c.inKorea);
-  const card = (x) => `<li class="car" data-id="${x.id}" data-status="${x.status}" data-make="${x.make}" data-body="${x.body}" data-fuel="${x.fuel}" data-price="${x.price}" data-year="${x.year}">
-    <article class="car__in" aria-labelledby="car-${x.id}">
-      <div class="car__img"><img src="/media/still-car-${x.img}.webp" alt="" width="1280" height="840" loading="lazy" decoding="async"><span class="car__badge car__badge--${x.status}">${esc(badge(x.status))}</span></div>
-      <h3 class="car__name" id="car-${x.id}"><span class="car__make">${esc(x.make)}</span> ${esc(x.model)}</h3>
-      <p class="car__spec mono"><span>${x.year}</span><span>${x.km ? `${kmf(x.km, t.lang)} ${esc(c.km)}` : esc(c.newBadge)}</span><span>${esc(c.fuels[x.fuel])}</span><span>${esc(c.gear[x.gear])}</span></p>
-      <p class="car__price"><span class="car__amount tabular">${euro(x.price, t.lang)}</span><span class="car__plabel">${esc(c.priceLabel)}</span></p>
-      <div class="car__acts">
-        <a class="btn btn--ink btn--sm" href="#test-drive" data-car="${x.id}">${esc(c.drive)} ${icon.arrow}</a>
-        <a class="btn btn--ghost-ink btn--sm" href="#porosi" data-ask="${esc(`${x.make} ${x.model} ${x.year}`)}">${esc(c.ask)}</a>
-      </div>
-    </article></li>`;
+  const cap = priceCap(cars);
   const sel = (name, label, opts) => `<div class="filter"><label for="f-${name}">${esc(label)}</label><select id="f-${name}" name="${name}"><option value="">${esc(c.any)}</option>${opts.map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join('')}</select></div>`;
+  const { count, ...cStrings } = c; // the strings live.js needs to draw a card (the count function stays here)
   const catalogue = `
 <section class="catalogue" id="makinat" aria-labelledby="cat-h" data-view="grid">
+  <script type="application/json" id="cat-data">${json({ lang: t.lang, cars, strings: cStrings })}</script>
   <div class="catalogue__head">
     <h2 id="cat-h" class="poster poster--m">${esc(c.h)}</h2>
     <p>${esc(c.text)}</p>
@@ -174,7 +170,7 @@ export function renderPage(t, all, cars) {
     ${sel('make', c.make, makes.map((m) => [m, m]))}
     ${sel('body', c.body, Object.entries(c.bodies))}
     ${sel('fuel', c.fuel, Object.entries(c.fuels))}
-    <div class="filter filter--range"><label for="f-price">${esc(c.price)} <output class="tabular" for="f-price" id="f-price-out">${euro(60000, t.lang)}</output></label><input id="f-price" name="price" type="range" min="8000" max="60000" step="1000" value="60000"></div>
+    <div class="filter filter--range"><label for="f-price">${esc(c.price)} <output class="tabular" for="f-price" id="f-price-out">${euro(cap, t.lang)}</output></label><input id="f-price" name="price" type="range" min="8000" max="${cap}" step="1000" value="${cap}"></div>
     <div class="filter"><label for="f-sort">${esc(c.sort)}</label><select id="f-sort" name="sort">${c.sorts.map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('')}</select></div>
   </form>
   <div class="catalogue__bar">
@@ -184,7 +180,7 @@ export function renderPage(t, all, cars) {
       <button type="button" data-view="list" aria-pressed="false">${icon.list}<span>${esc(c.list)}</span></button>
     </div>
   </div>
-  <ul class="car-list" id="car-list">${cars.map(card).join('')}</ul>
+  <ul class="car-list" id="car-list">${cars.map((x) => carCard(x, c, t.lang)).join('')}</ul>
   <div class="catalogue__empty" hidden><p>${esc(c.empty)}</p><button type="button" class="btn btn--ghost-ink" data-reset>${esc(c.reset)}</button></div>
 </section>`;
 
@@ -196,10 +192,10 @@ export function renderPage(t, all, cars) {
       <p>${esc(t.route.text)}</p>
     </div>
     <div class="route__track">
-      <svg class="route__line" viewBox="0 0 1000 10" preserveAspectRatio="none" aria-hidden="true"><path d="M0 5 H1000" pathLength="1"/></svg>
+      <span class="route__line" aria-hidden="true"><i></i></span>
       <ol class="legs">${t.route.legs.map((l, i) => `<li class="leg" data-leg="${i}">
         <span class="mono leg__n">0${i + 1}</span>
-        <img src="/media/scene-${i}-desktop.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async">
+        <span class="leg__img"><img src="/media/scene-${i}-desktop.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async"></span>
         <h3 class="leg__place">${esc(l.place)}</h3>
         <p class="leg__text">${esc(l.text)}</p></li>`).join('')}</ol>
     </div>
@@ -216,11 +212,12 @@ export function renderPage(t, all, cars) {
     <img src="/media/still-ship.webp" alt="" width="1280" height="840" loading="lazy" decoding="async">
   </div>
   <form class="mform" novalidate data-errors="${errs}" data-kind="order">
+    ${honeypot}
     <fieldset class="qstep is-on" data-step="0"><legend class="visually-hidden">${esc(t.order.h)}</legend>
       <div class="field"><label for="o-model">${esc(d.model)}</label><input id="o-model" name="model" required placeholder="Hyundai Tucson, Kia EV6…"><p class="field__err" id="o-model-e"></p></div>
       <div class="field-row">
         <div class="field"><label for="o-budget">${esc(d.budget)}</label><input id="o-budget" name="budget" inputmode="numeric" class="tabular" required><p class="field__err" id="o-budget-e"></p></div>
-        <div class="field"><label for="o-year">${esc(d.yearFrom)}</label><input id="o-year" name="yearFrom" inputmode="numeric" class="tabular" placeholder="2020"></div>
+        <div class="field"><label for="o-year">${esc(d.yearFrom)}</label><input id="o-year" name="yearFrom" inputmode="numeric" class="tabular" placeholder="2020" data-check><p class="field__err" id="o-year-e"></p></div>
       </div>
       <div class="field"><label for="o-name">${esc(d.name)}</label><input id="o-name" name="name" autocomplete="name" required><p class="field__err" id="o-name-e"></p></div>
       <div class="field-row">
@@ -228,8 +225,9 @@ export function renderPage(t, all, cars) {
         <div class="field"><label for="o-email">${esc(d.email)}</label><input id="o-email" name="email" type="email" autocomplete="email" required spellcheck="false"><p class="field__err" id="o-email-e"></p></div>
       </div>
     </fieldset>
+    <p class="form-error" role="alert" hidden></p>
     <div class="quote__nav"><button type="submit" class="btn btn--ink" data-next data-label-next="${esc(d.sendOrder)}" data-label-send="${esc(d.sendOrder)}" data-label-sending="${esc(d.sending)}">${esc(d.sendOrder)} ${icon.arrow}</button></div>
-    <p class="form-note">${esc(t.order.note)}</p>
+    <p class="form-note">${esc(d.note)}</p>
     <div class="quote__done" hidden role="status"><p>${esc(d.doneOrder)}</p><button type="button" class="btn btn--ghost-ink" data-again>${esc(d.again)}</button></div>
   </form>
 </section>`;
@@ -246,7 +244,8 @@ export function renderPage(t, all, cars) {
   </form>
   <div class="calc__out" aria-live="polite">
     <p class="calc__label">${esc(f.monthly)}</p>
-    <p class="calc__big tabular" data-monthly>—</p>
+    <p class="calc__big tabular" data-monthly aria-hidden="true">—</p>
+    <p class="visually-hidden" data-monthly-sr></p>
     <p class="calc__sub"><span>${esc(f.total)}</span> <span class="tabular" data-total>—</span></p>
     <p class="calc__note">${esc(f.note)}</p>
   </div>
@@ -258,10 +257,9 @@ export function renderPage(t, all, cars) {
   <ul class="sr-list">${t.showrooms.items.map((s, i) => `<li class="sr">
     <img src="/media/scene-${i === 0 ? 4 : 3}-desktop.webp" alt="" width="1920" height="1080" loading="lazy" decoding="async">
     <h3 class="sr__city">${esc(s.city)}</h3><p class="sr__role">${esc(s.role)}</p>
-    <p class="sr__meta">${esc(s.addr)}<br>${esc(s.hours)}</p></li>`).join('')}</ul>
+    <p class="sr__meta">${siteField(`${SHOWROOM_IDS[i]}.address`, t.showrooms.addrLabel, t.unset)}<br>${siteField(`${SHOWROOM_IDS[i]}.hours`, t.showrooms.hoursLabel, t.unset)}</p></li>`).join('')}</ul>
 </section>`;
 
-  const showroomNames = t.showrooms.items.map((s) => s.city);
   const drive = `
 <section class="quote" id="test-drive" aria-labelledby="drive-h">
   <div class="quote__intro">
@@ -270,9 +268,10 @@ export function renderPage(t, all, cars) {
     <ol class="quote__steps mono" aria-hidden="true">${d.steps.map((s, i) => `<li data-step="${i}"${i === 0 ? ' class="is-on"' : ''}>0${i + 1} ${esc(s)}</li>`).join('')}</ol>
   </div>
   <form class="mform quote__form" novalidate data-errors="${errs}" data-kind="drive">
+    ${honeypot}
     <fieldset class="qstep is-on" data-step="0"><legend class="visually-hidden">${esc(d.steps[0])}</legend>
-      <div class="field"><label for="d-car">${esc(d.car)}</label><select id="d-car" name="car" required><option value="">${esc(d.carPh)}</option>${cars.filter((x) => x.status !== 'korea').map((x) => `<option value="${x.id}">${esc(`${x.make} ${x.model} · ${x.year}`)}</option>`).join('')}</select><p class="field__err" id="d-car-e"></p></div>
-      <div class="field field--pills"><span class="field__l" id="d-sr-l">${esc(d.showroom)}</span><div class="pills" role="radiogroup" aria-labelledby="d-sr-l">${showroomNames.map((s, i) => `<label><input type="radio" name="showroom" value="${esc(s)}"${i === 0 ? ' checked' : ''}><span>${esc(s)}</span></label>`).join('')}</div></div>
+      <div class="field"><label for="d-car">${esc(d.car)}</label><select id="d-car" name="car" required><option value="">${esc(d.carPh)}</option>${driveOptions(cars)}</select><p class="field__err" id="d-car-e"></p></div>
+      <div class="field field--pills"><span class="field__l" id="d-sr-l">${esc(d.showroom)}</span><div class="pills" role="radiogroup" aria-labelledby="d-sr-l">${t.showrooms.items.map((s, i) => `<label><input type="radio" name="showroom" value="${SHOWROOM_IDS[i]}"${i === 0 ? ' checked' : ''}><span>${esc(s.city)}</span></label>`).join('')}</div></div>
     </fieldset>
     <fieldset class="qstep" data-step="1" hidden><legend class="visually-hidden">${esc(d.steps[1])}</legend>
       <div class="field"><label for="d-date">${esc(d.date)}</label><input id="d-date" name="date" type="date" required><p class="field__err" id="d-date-e"></p></div>
@@ -286,10 +285,12 @@ export function renderPage(t, all, cars) {
       </div>
       <div class="field"><label for="d-notes">${esc(d.notes)}</label><textarea id="d-notes" name="notes" rows="3"></textarea></div>
     </fieldset>
+    <p class="form-error" role="alert" hidden></p>
     <div class="quote__nav">
       <button type="button" class="btn btn--ghost-ink" data-prev hidden>${esc(d.prev)}</button>
       <button type="submit" class="btn btn--ink" data-next data-label-next="${esc(d.next)}" data-label-send="${esc(d.send)}" data-label-sending="${esc(d.sending)}">${esc(d.next)} ${icon.arrow}</button>
     </div>
+    <p class="form-note">${esc(d.note)}</p>
     <div class="quote__done" hidden role="status"><p>${esc(d.done)}</p><button type="button" class="btn btn--ghost-ink" data-again>${esc(d.again)}</button></div>
   </form>
 </section>`;
@@ -297,7 +298,7 @@ export function renderPage(t, all, cars) {
   const guides = `
 <section class="guides" id="udhezues" aria-labelledby="guides-h">
   <h2 id="guides-h">${esc(t.guides.h)}</h2>
-  <ul class="guides__list">${t.guides.items.map((g) => `<li class="guide"><p class="guide__k">${esc(g.k)}</p><h3>${esc(g.h)}</h3><p>${esc(g.t)}</p></li>`).join('')}</ul>
+  <ul class="guides__list">${t.guides.items.map((g) => `<li class="guide"><span class="guide__rule" aria-hidden="true"></span><p class="guide__k">${esc(g.k)}</p><h3>${esc(g.h)}</h3><p>${esc(g.t)}</p></li>`).join('')}</ul>
 </section>`;
 
   const ft = t.footer;
@@ -305,7 +306,7 @@ export function renderPage(t, all, cars) {
 <footer class="site-footer" id="kontakt">
   <p class="site-footer__mark" aria-hidden="true">lindja</p>
   <div class="site-footer__grid">
-    <div><p class="mono">${esc(ft.contact)}</p><ul><li>${esc(ft.address)}</li><li>${esc(ft.phone)}</li><li>${esc(ft.email)}</li></ul></div>
+    <div><p class="mono">${esc(ft.contact)}</p><ul><li>${siteField('contact.address', ft.addressLabel, t.unset)}</li><li>${siteField('contact.phone', ft.phoneLabel, t.unset)}</li><li>${siteField('contact.email', ft.emailLabel, t.unset)}</li></ul></div>
     <div><p class="mono">${esc(ft.cols)}</p><ul><li><a href="#makinat">${esc(n.cars)}</a></li><li><a href="#importi">${esc(t.route.h)}</a></li><li><a href="#porosi">${esc(n.order)}</a></li><li><a href="#test-drive">${esc(n.drive)}</a></li></ul></div>
     <div><p class="mono">${esc(n.language)}</p>${langSwitch(t, all, 'lang--footer')}
       <button type="button" class="motion-toggle motion-toggle--footer" aria-pressed="false" data-label-stop="${esc(h.stop)}" data-label-start="${esc(h.start)}">${icon.pause}<span>${esc(h.stop)}</span></button></div>

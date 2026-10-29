@@ -5,3 +5,8 @@ renders/
 *.log
 .env.local
 .env
+# netlify dev keeps local Blobs here (test bookings: names, phones): never commit
+.netlify/
+deno.lock
+# the live admin password, kept only on this computer
+ADMIN-PASSWORD.local.txt
