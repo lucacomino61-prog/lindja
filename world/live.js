@@ -14,7 +14,7 @@ import { lodU } from './impostor.js';
 
 // light tree models within this distance of the camera, cards beyond (world/impostor.js)
 const LOD_D = { high: 75, mid: 50, low: 28 };
-const SHADOW_EVERY = { high: 1, mid: 1, low: 2 };
+const SHADOW_EVERY = { high: 1, mid: 1, low: 3 };
 
 const { clamp, smoothstep: sm, lerp } = THREE.MathUtils;
 const easeIO = (x) => (x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2);
@@ -83,9 +83,14 @@ function makeRain(n) {
   return lines;
 }
 
-export async function createLive({ canvas, width, height: H, dpr = 1, variant = 'desktop', tier = 'high', sky, skyGold }) {
+// onProgress(phase, 0..1): 'load' (files: models, pictures, skies), 'build', 'compile' (the page's preloader shows it)
+export async function createLive({ canvas, width, height: H, dpr = 1, variant = 'desktop', tier = 'high', sky, skyGold, onProgress = () => {} }) {
   const live = { tier, dpr, sky };
+  // every loader here goes through three's default manager; about 30 files in all, so the count never runs ahead
+  let best = 0;
+  THREE.DefaultLoadingManager.onProgress = (url, loaded, total) => { const f = Math.min(1, loaded / Math.max(total, 30)); if (f > best) { best = f; onProgress('load', f); } };
   const w = await createWorld({ width, height: H, variant, canvas, quality: 'film', look: 'day', live });
+  onProgress('build', 1);
   const { scene, camera, renderer, sun, hemi, sunDir, cloudU, grade, sea, LOOKS } = w;
   const day = LOOKS.day, gold = LOOKS.golden;
 
@@ -232,14 +237,18 @@ export async function createLive({ canvas, width, height: H, dpr = 1, variant = 
   const bounds = w.stations.map((s) => { const b = new THREE.Box3().setFromObject(s.group).getBoundingSphere(new THREE.Sphere()); b.radius += 8; return b; });
   const anchorIds = w.stations.flatMap((s) => s.anchors.map((a) => a.id));
   // everything compiled up front, for the composer's target (no tone mapping there): no program compiles mid-scroll
+  // (compiled before the first frame: drawn first, every program would compile there, blocking the page for seconds)
+  // (one compileAsync: batching it by visibility does not work here, three's compile() walks every material each call,
+  // and 40 batches took twice as long; the preloader's bar carries a compositor sheen through the wait instead)
   async function warm() {
-    frame(0, 0);
     const vis = [];
     scene.traverse((o) => { if (!o.visible) { vis.push(o); o.visible = true; } });
     rain.visible = true;
+    onProgress('compile', 0);
     renderer.setRenderTarget(w.composer.readBuffer);
     await renderer.compileAsync(scene, camera);
     renderer.setRenderTarget(null);
+    onProgress('compile', 1);
     vis.forEach((o) => { o.visible = false; });
     frame(0, 0);
     // the land, the sea, the trees and the towns never move: freeze their matrices (the stops keep theirs live)

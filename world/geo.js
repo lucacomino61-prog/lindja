@@ -31,16 +31,16 @@ export function inland(x, z) { return x >= 0 ? x - coastK(z) : coastA(z) - x; }
 function fbm(f, x, z, oct = 5) { let a = 0.5, s = 0, fr = 1; for (let i = 0; i < oct; i++) { s += a * f(x * fr, z * fr); fr *= 2.03; a *= 0.5; } return s; }
 
 function polyInfo(pts, x, z) {
-  let best = Infinity, acc = 0, bestAlong = 0;
+  let best = Infinity, acc = 0, bestAlong = 0, px = x, pz = z;
   for (let i = 0; i < pts.length - 1; i++) {
     const [ax, az] = pts[i], [bx, bz] = pts[i + 1];
     const dx = bx - ax, dz = bz - az, L2 = dx * dx + dz * dz, L = Math.sqrt(L2);
     const t = clamp(((x - ax) * dx + (z - az) * dz) / L2, 0, 1);
     const d = Math.hypot(x - (ax + dx * t), z - (az + dz * t));
-    if (d < best) { best = d; bestAlong = acc + t * L; }
+    if (d < best) { best = d; bestAlong = acc + t * L; px = ax + dx * t; pz = az + dz * t; }
     acc += L;
   }
-  return { d: best, along: bestAlong };
+  return { d: best, along: bestAlong, px, pz };
 }
 
 // real elevation in board units: metres x vertical exaggeration (Korea's gentler hills a little more)
@@ -63,7 +63,9 @@ export function height(x, z) {
   let y = rawHeight(x, z);
   for (const road of [ROAD_K, ROAD_A]) {
     const r = polyInfo(road, x, z);
-    if (r.d < 12) y = lerp(y, Math.max(1.2, rawHeight(x, z) * 0.55 + 0.9), 1 - smoothstep(2.2, 12, r.d));
+    // the road bed takes the height of the road's centre line, so the ground across the carriageway is level with it
+    // (taken at each point instead, a cross-slope lifted the verge through the asphalt)
+    if (r.d < 12) y = lerp(y, Math.max(1.2, rawHeight(r.px, r.pz) * 0.55 + 0.9), 1 - smoothstep(2.2, 12, r.d));
   }
   for (const st of STATIONS) {
     if (st.pad == null) continue;

@@ -136,13 +136,18 @@ html[data-motion='off'] .hero__canvas { display: none; }
 .hero__hint { position: absolute; left: 50%; top: calc(var(--header-h) + 34px); translate: -50% 0; display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: rgb(16 20 24 / 0.78); color: var(--limestone); border-radius: 99px; font-size: 0.8125rem; transition: opacity 400ms var(--ease-out); }
 .hero[data-step='4'] .hero__hint, html[data-scrolled] .hero__hint { opacity: 0; }
 
-.loader { position: absolute; inset: 0; z-index: 30; display: grid; place-content: center; justify-items: center; gap: 14px; background: var(--limestone); transition: opacity 500ms var(--ease-out), visibility 0s linear 500ms; }
+/* the preloader covers the whole site (header too) while the 3D world downloads and builds (src/hero/hero.js) */
+.loader { position: fixed; inset: 0; z-index: 120; display: grid; place-content: center; justify-items: center; gap: 14px; background: var(--limestone); transition: opacity 500ms var(--ease-out), visibility 0s linear 500ms; }
 .loader.is-done { opacity: 0; visibility: hidden; }
 .loader__mark { width: 200px; color: var(--ink); }
 .loader__mark .wordmark { width: 100%; height: auto; }
 .loader__line { display: flex; gap: 10px; align-items: baseline; font-size: 0.9375rem; }
 .loader__bar { position: relative; width: 200px; height: 2px; background: var(--rule); overflow: hidden; }
 .loader__bar i { position: absolute; inset: 0; background: var(--signal); transform: scaleX(var(--p, 0)); transform-origin: left; transition: transform 200ms linear; }
+/* a sheen running along the bar: a compositor animation, so it keeps moving even while the page is busy building */
+.loader__bar::after { content: ''; position: absolute; inset: 0; width: 40%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.75), transparent); transform: translateX(-100%); animation: loader-sheen 1.4s linear infinite; }
+@keyframes loader-sheen { to { transform: translateX(260%); } }
+.loader__bar { height: 3px; width: 240px; }
 .loader__skip { margin-top: 6px; display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 14px; border: 0; border-radius: 3px; background: none; box-shadow: inset 0 0 0 1px var(--rule-strong); font: 500 0.875rem/1 var(--f-text); cursor: pointer; }
 html:not(.js) .loader { display: none; }
 html:not(.js) .hero__canvas { display: none; }

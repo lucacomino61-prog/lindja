@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { MAP, STATIONS, ROAD_K, ROAD_A, height, rectDist } from './geo.js';
 import { simplex2, smoothstep } from './noise.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
-import { groundUrl } from './quality.js';
+import { groundUrl, Q } from './quality.js';
 
 const fieldNoise = simplex2(101);
 const tone = (hex) => new THREE.Color(hex);
@@ -143,7 +143,8 @@ function seaMaterial(uniforms, swell) {
   // each wave's crest is bent by a fixed noise field (warp), so crests break up instead of running as straight parallel
   // lines; only the shape is warped, never the timing, so the sea still closes on itself every PERIOD. A wave fades out
   // before it is under ~14 px on screen: smaller ones read as rows of dashes in the middle distance.
-  const waveCode = WAVES.map(([da, lam, s, cyc], i) => {
+  // the live page's low tier leaves out the three shortest waves (a third of the sea's cost; they are faint ripples)
+  const waveCode = WAVES.filter(([, lam]) => !(Q.live && Q.tier === 'low' && lam < 0.7)).map(([da, lam, s, cyc], i) => {
     const k = (2 * Math.PI) / lam, a = WIND + da * 1.7; // a wider spread of headings: no one direction dominates
     return `{ vec2 dir = vec2(${Math.cos(a).toFixed(5)}, ${Math.sin(a).toFixed(5)}); float ph = dot(dir, p) * ${k.toFixed(5)} + warp * ${(0.55 + (i % 4) * 0.3).toFixed(2)} - t * ${cyc.toFixed(1)} + ${(i * 1.7).toFixed(2)};
       float fade = 1.0 - smoothstep(0.07, 0.28, fw / ${lam.toFixed(3)}); g += dir * (${(s * 0.8).toFixed(4)} * env.${'xyz'[i % 3]} * cos(ph) * fade); }`;
@@ -324,7 +325,8 @@ function roadMaterial(asphaltImg, relief) {
   const map = new THREE.CanvasTexture(cv);
   map.colorSpace = THREE.SRGBColorSpace; map.wrapS = THREE.ClampToEdgeWrapping; map.wrapT = THREE.RepeatWrapping; map.anisotropy = 8;
   const rep = (t) => { const c = t.clone(); c.wrapS = c.wrapT = THREE.RepeatWrapping; c.repeat.set(W / ROAD.period, 1); return c; };
-  return new THREE.MeshStandardMaterial({ map, normalMap: rep(relief.normalMap), roughnessMap: rep(relief.roughnessMap), roughness: 1, side: THREE.DoubleSide });
+  // polygonOffset: where the bed and the asphalt nearly coincide, the asphalt wins the depth test (no flicker far off)
+  return new THREE.MeshStandardMaterial({ map, normalMap: rep(relief.normalMap), roughnessMap: rep(relief.roughnessMap), roughness: 1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -2 });
 }
 // a strip along the road: cross-section points [offset, height] at every sample
 function strip(pts, frames, section, closed = false) {

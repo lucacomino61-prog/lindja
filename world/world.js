@@ -6,6 +6,9 @@ import { GTAOPass } from 'three/addons/postprocessing/GTAOPass.js';
 import { BokehPass } from 'three/addons/postprocessing/BokehPass.js';
 import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
 import { ShaderPass } from 'three/addons/postprocessing/ShaderPass.js';
+import { HorizontalTiltShiftShader } from 'three/addons/shaders/HorizontalTiltShiftShader.js';
+import { VerticalTiltShiftShader } from 'three/addons/shaders/VerticalTiltShiftShader.js';
+import { FXAAShader } from 'three/addons/shaders/FXAAShader.js';
 import { RGBELoader } from 'three/addons/loaders/RGBELoader.js';
 import { pbr } from './pbr.js';
 import { STATIONS, height, MAP, rectDist } from './geo.js';
@@ -279,7 +282,7 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   });
   setShips(sea, ships);
   const cloudU = { uCloudPhase: { value: 0 }, uSunDir: { value: sunDir }, uCloudK: { value: LK.clouds }, uCamWorld: { value: new THREE.Matrix4() } };
-  addCloudShadows(scene, cloudU, !!live);
+  if (tier !== 'low') addCloudShadows(scene, cloudU, !!live); // a weak GPU's every pixel is spared the cloud noise
   const poses = posesFor(variant, stations);
   const ov = overview(variant);
   const L = layout(stations.length);
@@ -287,6 +290,7 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   const camera = new THREE.PerspectiveCamera(24, width / H, 0.5, 2000);
   camera.layers.enable(K.TREE_LAYER); sun.shadow.camera.layers.enable(K.TREE_LAYER); // trees: seen and shadowed, not mirrored in the sea
   const MSAA = live ? (tier === 'low' ? 0 : 2) : quality === 'draft' ? 0 : 4;
+  let VW = width, VH = H; // the view's size (live pages resize)
   const composer = new EffectComposer(renderer, new THREE.WebGLRenderTarget(width, H, { type: THREE.HalfFloatType, samples: MSAA }));
   composer.setPixelRatio(live ? live.dpr : 1); composer.setSize(width, H);
   composer.addPass(new RenderPass(scene, camera));
@@ -304,8 +308,21 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
   const grade = new ShaderPass(GradeShader);
   grade.uniforms.uTone.value = LK.grade.tone; grade.uniforms.uSat.value = LK.grade.sat; grade.uniforms.uVig.value = LK.grade.vig;
   composer.addPass(grade);
+  // live: the film's miniature look without its depth of field (a tilt-shift band, sharp where the subject stands),
+  // and FXAA where there is no multisampling
+  let tiltH = null, tiltV = null, fxaa = null;
+  if (live) {
+    tiltH = new ShaderPass(HorizontalTiltShiftShader); tiltV = new ShaderPass(VerticalTiltShiftShader);
+    for (const t of [tiltH, tiltV]) { t.uniforms.r.value = 0.58; composer.addPass(t); }
+    if (MSAA === 0) { fxaa = new ShaderPass(FXAAShader); composer.addPass(fxaa); }
+  }
+  const BLUR = 3.2; // the tilt-shift's strength in pixels of the view
+  const sizePasses = () => {
+    if (tiltH) { tiltH.uniforms.h.value = BLUR / VW; tiltV.uniforms.v.value = BLUR / VH; }
+    if (fxaa) fxaa.uniforms.resolution.value.set(1 / (VW * (live?.dpr || 1)), 1 / (VH * (live?.dpr || 1)));
+  };
 
-  let VW = width, VH = H; // the view's size (live pages resize)
+  sizePasses();
   function applyPose(p) {
     const { pos, target } = camFromPose(p);
     camera.fov = p.fov; camera.position.copy(pos); camera.lookAt(target);
@@ -417,6 +434,7 @@ export async function createWorld({ width, height: H, variant = 'desktop', canva
     composer.setPixelRatio(dpr); composer.setSize(w, h);
     if (REFL) reflRT.setSize(...reflSize());
     camera.aspect = w / h;
+    sizePasses();
   }
 
   return { renderer, scene, camera, composer, stations, layout: L, poses, setFrame, anchorsNow, render, applyPose, sun, look,

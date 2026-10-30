@@ -43,8 +43,11 @@ const browser = await launch();
 try {
   // ---------- desktop ----------
   let { p, ctx, log } = await open(browser, `${base}/`);
-  check('first view is the still (LCP image), loader lifted', await p.evaluate(() => { const i = document.querySelector('.hero__poster img'); return i.complete && i.naturalWidth > 0 && document.querySelector('.loader').classList.contains('is-done'); }));
+  check('preloader holds the site while the world loads (scroll locked)', await p.evaluate(() => !document.querySelector('.loader').classList.contains('is-done') && document.documentElement.classList.contains('lenis-stopped')));
   check('the live world builds and fades in', await waitLive(p));
+  await p.waitForFunction(() => document.querySelector('.loader').classList.contains('is-done'), { timeout: 60000 }).catch(() => {});
+  check('then the preloader lifts at 100 %, scroll free', await p.evaluate(() => document.querySelector('.loader').classList.contains('is-done') && document.querySelector('.loader__pct').textContent === '100%' && !document.documentElement.classList.contains('lenis-stopped')));
+  check('sharp: the world draws at 0.7+ of the CSS resolution', await p.evaluate(() => window.__udha.heroWorld().renderer.getPixelRatio() >= 0.7));
   const words = [];
   for (let k = 0; k <= 4; k++) {
     await toU(p, k); await sleep(1400);
@@ -64,9 +67,11 @@ try {
   check('golden hour in Tirana: no rain, warm sun', await p.evaluate(() => { const w = window.__udha.heroWorld().world; return w.sun.color.r > w.sun.color.b * 1.3; }));
   // the rail scrolls to its stop
   await toU(p, 0); await sleep(600);
-  await p.evaluate(() => document.querySelector('.rail__btn[data-goto="3"]').click()); await sleep(2600);
-  check('rail button scrolls to its stop', (await heroState(p)).step === 3);
-  // a hotspot card opens and closes
+  await p.evaluate(() => document.querySelector('.rail__btn[data-goto="3"]').click());
+  const railed = await p.waitForFunction(() => document.getElementById('lindja-film').dataset.step === '3', { timeout: 8000 }).then(() => true).catch(() => false);
+  check('rail button scrolls to its stop', railed);
+  // a hotspot card opens and closes (the label turns halfway there: wait for the stop's hotspots)
+  await p.waitForFunction(() => document.querySelector('.spot.is-on'), { timeout: 8000 }).catch(() => {});
   const opened = await p.evaluate(() => { const b = document.querySelector('.spot.is-on .spot__btn'); if (!b) return false; b.click(); return !document.getElementById(b.getAttribute('aria-controls')).hidden; });
   check('hotspot card opens', opened);
   await p.keyboard.press('Escape'); await sleep(200);

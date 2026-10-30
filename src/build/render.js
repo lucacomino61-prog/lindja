@@ -149,12 +149,12 @@ export function renderPage(t, all, cars) {
   </nav>
   <p class="hero__hint" aria-hidden="true">${icon.down}<span>${esc(h.hint)}</span></p>
   <p class="proto-badge mono">${esc(t.proto)}</p>
+  </div>
   <div class="loader" role="status">
     <div class="loader__mark">${wordmark('wordmark--loader')}</div>
     <p class="loader__line"><span>${esc(h.loading)}</span> <span class="mono loader__pct">0%</span></p>
     <span class="loader__bar" aria-hidden="true"><i></i></span>
     <button type="button" class="loader__skip">${esc(h.loaderSkip)} ${icon.arrow}</button>
-  </div>
   </div>
 </section>`;
 
